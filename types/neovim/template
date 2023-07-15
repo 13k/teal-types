@@ -114,6 +114,7 @@ global record vim
   tbl_flatten: function<T>({T|{T}}): {T}
   tbl_flatten: function({any|{any}}): {any}
 
+  tbl_get: function(table, ...: any): any
   tbl_isempty: function(table): boolean
   tbl_islist: function(table): boolean
   tbl_keys: function<T>({T:any}): {T}
