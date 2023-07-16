@@ -1517,7 +1517,7 @@ global record vim
   v: {string:any}
   b: {string:any}
   w: {string:any}
-  env: {string:any}
+  env: {string: string}
 
   --[[$ALL_OPTS$]]
   o: AllOptions
