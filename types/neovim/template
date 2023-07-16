@@ -187,68 +187,748 @@ global record vim
     check: function(str: string): {{string | integer}}
   end
 
-  -- TODO: these are a pitiful approximation of luv's types
-  -- once Teal has some form of type inheritance/composition and luv.d.tl is written
-  -- just steal from that
-  record loop
-    record Handle
-      close: function(Handle)
-      is_closing: function(Timer)
+  -- Types taken from neovim's `luvref.txt`
+  -- Inheritance is "solved" by copy-pasting everything from parent types into child types
+  record uv
+    -- {{{ pseudo-types
+
+    type buffer = string | {string}
+    type threadargs = nil | boolean | number | string
+
+    record Time
+      sec: integer
+      usec: integer
     end
 
-    record Pipe
-      read_start: function(Pipe, function(string, string))
-      read_stop: function(Pipe)
-      close: function(Pipe)
+    -- }}} pseudo-types
+    -- {{{ luv-error-handling
+
+    enum Error
+      "E2BIG" -- argument list too long.
+      "EACCES" -- permission denied.
+      "EADDRINUSE" -- address already in use.
+      "EADDRNOTAVAIL" -- address not available.
+      "EAFNOSUPPORT" -- address family not supported.
+      "EAGAIN" -- resource temporarily unavailable.
+      "EAI_ADDRFAMILY" -- address family not supported.
+      "EAI_AGAIN" -- temporary failure.
+      "EAI_BADFLAGS" -- bad ai_flags value.
+      "EAI_BADHINTS" -- invalid value for hints.
+      "EAI_CANCELED" -- request canceled.
+      "EAI_FAIL" -- permanent failure.
+      "EAI_FAMILY" -- ai_family not supported.
+      "EAI_MEMORY" -- out of memory.
+      "EAI_NODATA" -- no address.
+      "EAI_NONAME" -- unknown node or service.
+      "EAI_OVERFLOW" -- argument buffer overflow.
+      "EAI_PROTOCOL" -- resolved protocol is unknown.
+      "EAI_SERVICE" -- service not available for socket type.
+      "EAI_SOCKTYPE" -- socket type not supported.
+      "EALREADY" -- connection already in progress.
+      "EBADF" -- bad file descriptor.
+      "EBUSY" -- resource busy or locked.
+      "ECANCELED" -- operation canceled.
+      "ECHARSET" -- invalid Unicode character.
+      "ECONNABORTED" -- software caused connection abort.
+      "ECONNREFUSED" -- connection refused.
+      "ECONNRESET" -- connection reset by peer.
+      "EDESTADDRREQ" -- destination address required.
+      "EEXIST" -- file already exists.
+      "EFAULT" -- bad address in system call argument.
+      "EFBIG" -- file too large.
+      "EHOSTUNREACH" -- host is unreachable.
+      "EINTR" -- interrupted system call.
+      "EINVAL" -- invalid argument.
+      "EIO" -- i/o error.
+      "EISCONN" -- socket is already connected.
+      "EISDIR" -- illegal operation on a directory.
+      "ELOOP" -- too many symbolic links encountered.
+      "EMFILE" -- too many open files.
+      "EMSGSIZE" -- message too long.
+      "ENAMETOOLONG" -- name too long.
+      "ENETDOWN" -- network is down.
+      "ENETUNREACH" -- network is unreachable.
+      "ENFILE" -- file table overflow.
+      "ENOBUFS" -- no buffer space available.
+      "ENODEV" -- no such device.
+      "ENOENT" -- no such file or directory.
+      "ENOMEM" -- not enough memory.
+      "ENONET" -- machine is not on the network.
+      "ENOPROTOOPT" -- protocol not available.
+      "ENOSPC" -- no space left on device.
+      "ENOSYS" -- function not implemented.
+      "ENOTCONN" -- socket is not connected.
+      "ENOTDIR" -- not a directory.
+      "ENOTEMPTY" -- directory not empty.
+      "ENOTSOCK" -- socket operation on non-socket.
+      "ENOTSUP" -- operation not supported on socket.
+      "EOVERFLOW" -- value too large for defined data type.
+      "EPERM" -- operation not permitted.
+      "EPIPE" -- broken pipe.
+      "EPROTO" -- protocol error.
+      "EPROTONOSUPPORT" -- protocol not supported.
+      "EPROTOTYPE" -- protocol wrong type for socket.
+      "ERANGE" -- result too large.
+      "EROFS" -- read-only file system.
+      "ESHUTDOWN" -- cannot send after transport endpoint shutdown.
+      "ESPIPE" -- invalid seek.
+      "ESRCH" -- no such process.
+      "ETIMEDOUT" -- connection timed out.
+      "ETXTBSY" -- text file is busy.
+      "EXDEV" -- cross-device link not permitted.
+      "UNKNOWN" -- unknown error.
+      "EOF" -- end of file.
+      "ENXIO" -- no such device or address.
+      "EMLINK" -- too many links.
+      "ENOTTY" -- inappropriate ioctl for device.
+      "EFTYPE" -- inappropriate file type or format.
+      "EILSEQ" -- illegal byte sequence.
+      "ESOCKTNOSUPPORT" -- socket type not supported.
     end
 
-    record Process
-      close: function(Process)
-    end
+    errno: {Error: integer}
 
-    record Timer
-      start: function(Timer, integer, integer, function)
-      close: function(Timer)
-      stop: function(Timer)
-      is_closing: function(Timer)
-    end
+    -- }}} luv-error-handling
+    -- {{{ luv-version-checking
 
-    cwd: function(): string
-    sleep: function(integer)
-    new_timer: function(): Timer
-    new_pipe: function(boolean): Pipe
+    version: function(): integer
+    version_string: function(): string
 
-    -- TODO: the rest of these
-    record SpawnOptions
-      cwd: string
-      args: {string}
-      stdio: {Pipe, Pipe, Pipe}
-    end
+    -- }}} luv-version-checking
+    -- {{{ Requests
 
-    spawn: function(string, SpawnOptions, function): Process
+    -- uv_req_t
+    record Request
+      userdata
 
-    read_start: function(Pipe, function(string, string))
-
-    record Fs userdata end
-
-    fs_open: function(string, string|integer, integer): integer, string, string
-    fs_open: function(string, string|integer, integer, function(string, integer)): Fs
-
-    fs_close: function(integer): boolean, string, string
-    fs_close: function(integer, function(string, boolean)): Fs
-
-    fs_read: function(integer, integer, integer): string, string, string
-    fs_read: function(integer, integer, integer, function(string, integer)): Fs
-
-    fs_write: function(integer, string|{string}, integer): integer, string, string
-    fs_write: function(integer, string|{string}, integer, function(string, integer)): Fs
-
-    record FsStat
-      record Time
-        sec: integer
-        nsec: integer
+      enum Type
+        "connect"
+        "fs"
+        "getaddrinfo"
+        "getnameinfo"
+        "shutdown"
+        "udp_send"
+        "write"
       end
 
+      cancel: function(self: Request): integer, string, string
+      get_type: function(self: Request): Type, integer
+    end
+
+    -- uv_connect_t : uv_req_t
+    record Connect
+      userdata
+
+      cancel: function(self: Connect): integer, string, string
+      get_type: function(self: Connect): Request.Type, integer
+    end
+
+    -- uv_fs_t : uv_req_t
+    record Fs
+      userdata
+
+      cancel: function(self: Fs): integer, string, string
+      get_type: function(self: Fs): Request.Type, integer
+    end
+
+    -- uv_getaddrinfo_t : uv_req_t
+    record GetAddrInfo
+      userdata
+
+      cancel: function(self: GetAddrInfo): integer, string, string
+      get_type: function(self: GetAddrInfo): Request.Type, integer
+    end
+
+    -- uv_getnameinfo_t : uv_req_t
+    record GetNameInfo
+      userdata
+
+      cancel: function(self: GetNameInfo): integer, string, string
+      get_type: function(self: GetNameInfo): Request.Type, integer
+    end
+
+    -- uv_shutdown_t : uv_req_t
+    record Shutdown
+      userdata
+
+      cancel: function(self: Shutdown): integer, string, string
+      get_type: function(self: Shutdown): Request.Type, integer
+    end
+
+    -- uv_udp_send_t : uv_req_t
+    record UDPSend
+      userdata
+
+      cancel: function(self: UDPSend): integer, string, string
+      get_type: function(self: UDPSend): Request.Type, integer
+    end
+
+    -- uv_write_t : uv_req_t
+    record Write
+      userdata
+
+      cancel: function(self: Write): integer, string, string
+      get_type: function(self: Write): Request.Type, integer
+    end
+
+    -- }}} Requests
+    -- {{{ Handles
+
+    -- uv_handle_t
+    record Handle
+      userdata
+
+      enum Type
+        "timer"
+        "prepare"
+        "check"
+        "idle"
+        "async"
+        "poll"
+        "signal"
+        "process"
+        "tcp"
+        "pipe"
+        "tty"
+        "udp"
+        "fs_event"
+        "fs_poll"
+      end
+
+      is_active: function(self: Handle): boolean, string, string
+      is_closing: function(self: Handle): boolean, string, string
+      close: function(self: Handle)
+      close: function(self: Handle, callback: function())
+      send_buffer_size: function(self: Handle, size: integer): integer, string, string
+      recv_buffer_size: function(self: Handle, size: integer): integer, string, string
+      fileno: function(self: Handle): integer, string, string
+      get_type: function(self: Handle): Type, integer
+    end
+
+    -- uv_timer_t : uv_handle_t
+    record Timer
+      userdata
+
+      is_active: function(self: Timer): boolean, string, string
+      is_closing: function(self: Timer): boolean, string, string
+      close: function(self: Timer)
+      close: function(self: Timer, callback: function())
+      send_buffer_size: function(self: Timer, size: integer): integer, string, string
+      recv_buffer_size: function(self: Timer, size: integer): integer, string, string
+      fileno: function(self: Timer): integer, string, string
+      get_type: function(self: Timer): Handle.Type, integer
+
+      start: function(self: Timer, timeout: integer, repeat_: integer, callback: function()): integer, string, string
+      stop: function(self: Timer): integer, string, string
+      again: function(self: Timer): integer, string, string
+      set_repeat: function(self: Timer, repeat_: integer)
+      get_repeat: function(self: Timer): integer
+      get_due_in: function(self: Timer): integer
+    end
+
+    new_timer: function(): Timer, string, string
+
+    -- uv_prepare_t : uv_handle_t
+    record Prepare
+      userdata
+
+      is_active: function(self: Prepare): boolean, string, string
+      is_closing: function(self: Prepare): boolean, string, string
+      close: function(self: Prepare)
+      close: function(self: Prepare, callback: function())
+      send_buffer_size: function(self: Prepare, size: integer): integer, string, string
+      recv_buffer_size: function(self: Prepare, size: integer): integer, string, string
+      fileno: function(self: Prepare): integer, string, string
+      get_type: function(self: Prepare): Handle.Type, integer
+
+      start: function(self: Prepare, callback: function()): integer, string, string
+      stop: function(self: Prepare): integer, string, string
+    end
+
+    new_prepare: function(): Prepare, string, string
+
+    -- uv_check_t : uv_handle_t
+    record Check
+      userdata
+
+      is_active: function(self: Check): boolean, string, string
+      is_closing: function(self: Check): boolean, string, string
+      close: function(self: Check)
+      close: function(self: Check, callback: function())
+      send_buffer_size: function(self: Check, size: integer): integer, string, string
+      recv_buffer_size: function(self: Check, size: integer): integer, string, string
+      fileno: function(self: Check): integer, string, string
+      get_type: function(self: Check): Handle.Type, integer
+
+      start: function(self: Check, callback: function()): integer, string, string
+      stop: function(self: Check): integer, string, string
+    end
+
+    new_check: function(): Check, string, string
+
+    -- uv_idle_t : uv_handle_t
+    record Idle
+      userdata
+
+      is_active: function(self: Idle): boolean, string, string
+      is_closing: function(self: Idle): boolean, string, string
+      close: function(self: Idle)
+      close: function(self: Idle, callback: function())
+      send_buffer_size: function(self: Idle, size: integer): integer, string, string
+      recv_buffer_size: function(self: Idle, size: integer): integer, string, string
+      fileno: function(self: Idle): integer, string, string
+      get_type: function(self: Idle): Handle.Type, integer
+
+      start: function(self: Idle, callback: function()): integer, string, string
+      stop: function(self: Idle): integer, string, string
+    end
+
+    new_idle: function(): Idle, string, string
+
+    -- uv_async_t : uv_handle_t
+    record Async
+      userdata
+
+      is_active: function(self: Async): boolean, string, string
+      is_closing: function(self: Async): boolean, string, string
+      close: function(self: Async)
+      close: function(self: Async, callback: function())
+      send_buffer_size: function(self: Async, size: integer): integer, string, string
+      recv_buffer_size: function(self: Async, size: integer): integer, string, string
+      fileno: function(self: Async): integer, string, string
+      get_type: function(self: Async): Handle.Type, integer
+
+      send: function(self: Async, ...: threadargs): integer, string, string
+    end
+
+    new_async: function(): Async, string, string
+    new_async: function(callback: function(...: threadargs)): Async, string, string
+
+    -- uv_poll_t : uv_handle_t
+    record Poll
+      userdata
+
+      is_active: function(self: Poll): boolean, string, string
+      is_closing: function(self: Poll): boolean, string, string
+      close: function(self: Poll)
+      close: function(self: Poll, callback: function())
+      send_buffer_size: function(self: Poll, size: integer): integer, string, string
+      recv_buffer_size: function(self: Poll, size: integer): integer, string, string
+      fileno: function(self: Poll): integer, string, string
+      get_type: function(self: Poll): Handle.Type, integer
+
+      start: function(self: Poll, events: string, callback: function(err: string, events: string)): integer, string, string
+      stop: function(self: Poll): integer, string, string
+    end
+
+    new_poll: function(fd: integer): Poll, string, string
+    new_socket_poll: function(fd: integer): Poll, string, string
+
+    -- uv_signal_t
+    record Signal
+      userdata
+
+      is_active: function(self: Signal): boolean, string, string
+      is_closing: function(self: Signal): boolean, string, string
+      close: function(self: Signal)
+      close: function(self: Signal, callback: function())
+      send_buffer_size: function(self: Signal, size: integer): integer, string, string
+      recv_buffer_size: function(self: Signal, size: integer): integer, string, string
+      fileno: function(self: Signal): integer, string, string
+      get_type: function(self: Signal): Handle.Type, integer
+
+      start: function(self: Signal, signum: integer | string, callback: function(err: string)): integer, string, string
+      start_oneshot: function(self: Signal, signum: integer | string, callback: function(err: string)): integer, string, string
+      stop: function(self: Signal): integer, string, string
+    end
+
+    new_signal: function(): Signal, string, string
+
+    -- uv_process_t : uv_handle_t
+    record Process
+      userdata
+
+      record SpawnOptions
+        args: {string}
+        stdio: {Pipe | integer}
+        env: {string: string}
+        cwd: string
+        uid: integer
+        gid: integer
+        verbatim: boolean
+        detached: boolean
+        hide: boolean
+      end
+
+      is_active: function(self: Process): boolean, string, string
+      is_closing: function(self: Process): boolean, string, string
+      close: function(self: Process)
+      close: function(self: Process, callback: function())
+      send_buffer_size: function(self: Process, size: integer): integer, string, string
+      recv_buffer_size: function(self: Process, size: integer): integer, string, string
+      fileno: function(self: Process): integer, string, string
+      get_type: function(self: Process): Handle.Type, integer
+
+      kill: function(self: Process, signum: integer | string): integer, string, string
+      get_pid: function(self: Process): integer
+    end
+
+    disable_stdio_inheritance: function()
+    spawn: function(path: string, options: Process.SpawnOptions, on_exit: function(code: integer, signal: integer)): Process, integer
+    kill: function(pid: integer, signum: integer | string): integer, string, string
+
+    -- Sockets {{{
+
+    record Socket
+      enum Family
+        "unix"
+        "inet"
+        "inet6"
+        "ipx"
+        "netlink"
+        "x25"
+        "ax25"
+        "atmpvc"
+        "appletalk"
+        "packet"
+      end
+
+      enum Type
+        "stream"
+        "dgram"
+        "raw"
+        "rdm"
+        "seqpacket"
+      end
+
+      record Address
+        family: Family
+        ip: string
+        port: integer
+      end
+
+      record Flags
+        nonblock: boolean
+      end
+    end
+
+    socketpair: function(): {integer, integer}, string, string
+    socketpair: function(socktype: Socket.Type | integer): {integer, integer}, string, string
+    socketpair: function(socktype: Socket.Type | integer, protocol: string | integer): {integer, integer}, string, string
+    socketpair: function(socktype: Socket.Type | integer, protocol: string | integer, flags1: Socket.Flags): {integer, integer}, string, string
+    socketpair: function(socktype: Socket.Type | integer, protocol: string | integer, flags1: Socket.Flags, flags2: Socket.Flags): {integer, integer}, string, string
+
+    -- }}} Sockets
+    -- Streams {{{
+
+    -- uv_stream_t : uv_handle_t
+    record Stream
+      userdata
+
+      is_active: function(self: Stream): boolean, string, string
+      is_closing: function(self: Stream): boolean, string, string
+      close: function(self: Stream)
+      close: function(self: Stream, callback: function())
+      send_buffer_size: function(self: Stream, size: integer): integer, string, string
+      recv_buffer_size: function(self: Stream, size: integer): integer, string, string
+      fileno: function(self: Stream): integer, string, string
+      get_type: function(self: Stream): Handle.Type, integer
+
+      shutdown: function(self: Stream): Shutdown, string, string
+      shutdown: function(self: Stream, callback: function(err: string)): Shutdown, string, string
+      listen: function(self: Stream, backlog: integer, callback: function(err: string)): integer, string, string
+      accept: function(self: Stream, client_stream: Stream): integer, string, string
+      read_start: function(self: Stream, callback: function(err: string, data: string)): integer, string, string
+      read_stop: function(self: Stream): integer, string, string
+      write: function(self: Stream, data: buffer): Write, string, string
+      write: function(self: Stream, data: buffer, callback: function(err: string)): Write, string, string
+      write2: function(self: Stream, data: buffer, send_handle: Stream): Write, string, string
+      write2: function(self: Stream, data: buffer, send_handle: Stream, callback: function(err: string)): Write, string, string
+      try_write: function(self: Stream, data: buffer): integer, string, string
+      try_write2: function(self: Stream, data: buffer, send_handle: Stream): integer, string, string
+      is_readable: function(self: Stream): boolean
+      is_writable: function(self: Stream): boolean
+      set_blocking: function(self: Stream, blocking: boolean): integer, string, string
+      get_write_queue_size: function(self: Stream): integer
+    end
+
+    -- uv_tcp_t : uv_handle_t, uv_stream_t
+    record TCP
+      userdata
+
+      record BindOptions
+        ipv6only: boolean
+      end
+
+      is_active: function(self: TCP): boolean, string, string
+      is_closing: function(self: TCP): boolean, string, string
+      close: function(self: TCP)
+      close: function(self: TCP, callback: function())
+      send_buffer_size: function(self: TCP, size: integer): integer, string, string
+      recv_buffer_size: function(self: TCP, size: integer): integer, string, string
+      fileno: function(self: TCP): integer, string, string
+      get_type: function(self: TCP): Handle.Type, integer
+
+      shutdown: function(self: TCP): Shutdown, string, string
+      shutdown: function(self: TCP, callback: function(err: string)): Shutdown, string, string
+      listen: function(self: TCP, backlog: integer, callback: function(err: string)): integer, string, string
+      accept: function(self: TCP, client_stream: Stream): integer, string, string
+      read_start: function(self: TCP, callback: function(err: string, data: string)): integer, string, string
+      read_stop: function(self: TCP): integer, string, string
+      write: function(self: TCP, data: buffer): Write, string, string
+      write: function(self: TCP, data: buffer, callback: function(err: string)): Write, string, string
+      write2: function(self: TCP, data: buffer, send_handle: Stream): Write, string, string
+      write2: function(self: TCP, data: buffer, send_handle: Stream, callback: function(err: string)): Write, string, string
+      try_write: function(self: TCP, data: buffer): integer, string, string
+      try_write2: function(self: TCP, data: buffer, send_handle: Stream): integer, string, string
+      is_readable: function(self: TCP): boolean
+      is_writable: function(self: TCP): boolean
+      set_blocking: function(self: TCP, blocking: boolean): integer, string, string
+      get_write_queue_size: function(self: TCP): integer
+
+      open: function(self: TCP, sock: integer): integer, string, string
+      nodelay: function(self: TCP, enable: boolean): integer, string, string
+      keepalive: function(self: TCP, enable: boolean): integer, string, string
+      keepalive: function(self: TCP, enable: boolean, delay: integer): integer, string, string
+      simultaneous_accepts: function(self: TCP, enable: boolean): integer, string, string
+      bind: function(self: TCP, host: string, port: integer): integer, string, string
+      bind: function(self: TCP, host: string, port: integer, flags: BindOptions): integer, string, string
+      getpeername: function(self: TCP): Socket.Address, string, string
+      getsockname: function(self: TCP): Socket.Address, string, string
+      connect: function(self: TCP, host: string, port: integer, callback: function(err: string)): Connect, string, string
+      close_reset: function(self: TCP): integer, string, string
+      close_reset: function(self: TCP, callback: function()): integer, string, string
+    end
+
+    new_tcp: function(): TCP, string, string
+    new_tcp: function(flags: Socket.Family): TCP, string, string
+
+    -- uv_pipe_t : uv_handle_t, uv_stream_t
+    record Pipe
+      userdata
+
+      record Flags
+        nonblock: boolean
+      end
+
+      record Pair
+        read: integer
+        write: integer
+      end
+
+      enum ChmodFlags
+        "r"
+        "w"
+        "rw"
+        "wr"
+      end
+
+      is_active: function(self: Pipe): boolean, string, string
+      is_closing: function(self: Pipe): boolean, string, string
+      close: function(self: Pipe)
+      close: function(self: Pipe, callback: function())
+      send_buffer_size: function(self: Pipe, size: integer): integer, string, string
+      recv_buffer_size: function(self: Pipe, size: integer): integer, string, string
+      fileno: function(self: Pipe): integer, string, string
+      get_type: function(self: Pipe): Handle.Type, integer
+
+      shutdown: function(self: Pipe): Shutdown, string, string
+      shutdown: function(self: Pipe, callback: function(err: string)): Shutdown, string, string
+      listen: function(self: Pipe, backlog: integer, callback: function(err: string)): integer, string, string
+      accept: function(self: Pipe, client_stream: Stream): integer, string, string
+      read_start: function(self: Pipe, callback: function(err: string, data: string)): integer, string, string
+      read_stop: function(self: Pipe): integer, string, string
+      write: function(self: Pipe, data: buffer): Write, string, string
+      write: function(self: Pipe, data: buffer, callback: function(err: string)): Write, string, string
+      write2: function(self: Pipe, data: buffer, send_handle: Stream): Write, string, string
+      write2: function(self: Pipe, data: buffer, send_handle: Stream, callback: function(err: string)): Write, string, string
+      try_write: function(self: Pipe, data: buffer): integer, string, string
+      try_write2: function(self: Pipe, data: buffer, send_handle: Stream): integer, string, string
+      is_readable: function(self: Pipe): boolean
+      is_writable: function(self: Pipe): boolean
+      set_blocking: function(self: Pipe, blocking: boolean): integer, string, string
+      get_write_queue_size: function(self: Pipe): integer
+
+      open: function(self: Pipe, fd: integer): integer, string, string
+      bind: function(self: Pipe, name: string): integer, string, string
+      connect: function(self: Pipe, name: string): Connect, string, string
+      connect: function(self: Pipe, name: string, callback: function(err: string)): Connect, string, string
+      getsockname: function(self: Pipe): string, string, string
+      getpeername: function(self: Pipe): string, string, string
+      pending_instances: function(self: Pipe, count: integer)
+      pending_count: function(self: Pipe): integer
+      pending_type: function(self: Pipe): Handle.Type
+      chmod: function(self: Pipe, flags: ChmodFlags): integer, string, string
+    end
+
+    new_pipe: function(): Pipe, string, string
+    new_pipe: function(ipc: boolean): Pipe, string, string
+
+    pipe: function(read_flags: Pipe.Flags, write_flags: Pipe.Flags): Pipe.Pair
+
+    -- uv_tty_t : uv_handle_t, uv_stream_t
+    record TTY
+      userdata
+
+      enum VTermState
+        "supported"
+        "unsupported"
+      end
+
+      is_active: function(self: TTY): boolean, string, string
+      is_closing: function(self: TTY): boolean, string, string
+      close: function(self: TTY)
+      close: function(self: TTY, callback: function())
+      send_buffer_size: function(self: TTY, size: integer): integer, string, string
+      recv_buffer_size: function(self: TTY, size: integer): integer, string, string
+      fileno: function(self: TTY): integer, string, string
+      get_type: function(self: TTY): Handle.Type, integer
+
+      shutdown: function(self: TTY): Shutdown, string, string
+      shutdown: function(self: TTY, callback: function(err: string)): Shutdown, string, string
+      listen: function(self: TTY, backlog: integer, callback: function(err: string)): integer, string, string
+      accept: function(self: TTY, client_stream: Stream): integer, string, string
+      read_start: function(self: TTY, callback: function(err: string, data: string)): integer, string, string
+      read_stop: function(self: TTY): integer, string, string
+      write: function(self: TTY, data: buffer): Write, string, string
+      write: function(self: TTY, data: buffer, callback: function(err: string)): Write, string, string
+      write2: function(self: TTY, data: buffer, send_handle: Stream): Write, string, string
+      write2: function(self: TTY, data: buffer, send_handle: Stream, callback: function(err: string)): Write, string, string
+      try_write: function(self: TTY, data: buffer): integer, string, string
+      try_write2: function(self: TTY, data: buffer, send_handle: Stream): integer, string, string
+      is_readable: function(self: TTY): boolean
+      is_writable: function(self: TTY): boolean
+      set_blocking: function(self: TTY, blocking: boolean): integer, string, string
+      get_write_queue_size: function(self: TTY): integer
+
+      set_mode: function(self: TTY, mode: integer): integer, string, string
+      get_winsize: function(self: TTY): integer, integer, string, string
+    end
+
+    new_tty: function(fd: integer, readable: boolean): TTY, string, string
+
+    tty_reset_mode: function(): TTY, string, string
+    tty_set_vterm_state: function(state: TTY.VTermState)
+    tty_get_vterm_state: function(): TTY.VTermState, string, string
+
+    -- }}} Streams
+
+    -- uv_udp_t : uv_handle_t
+    record UDP
+      userdata
+
+      record Flags
+        family: Socket.Family
+        mmsgs: integer
+      end
+
+      record BindFlags
+        ipv6only: boolean
+        reuseaddr: boolean
+      end
+
+      record RecvFlags
+        partial: boolean
+        mmsg_chunk: boolean
+      end
+
+      enum MulticastMembership
+        "join"
+        "leave"
+      end
+
+      is_active: function(self: UDP): boolean, string, string
+      is_closing: function(self: UDP): boolean, string, string
+      close: function(self: UDP)
+      close: function(self: UDP, callback: function())
+      send_buffer_size: function(self: UDP, size: integer): integer, string, string
+      recv_buffer_size: function(self: UDP, size: integer): integer, string, string
+      fileno: function(self: UDP): integer, string, string
+      get_type: function(self: UDP): Handle.Type, integer
+
+      get_send_queue_size: function(self: UDP): integer
+      get_send_queue_count: function(self: UDP): integer
+      open: function(self: UDP, fd: integer): integer, string, string
+      bind: function(self: UDP, host: string, port: integer): integer, string, string
+      bind: function(self: UDP, host: string, port: integer, flags: BindFlags): integer, string, string
+      getsockname: function(self: UDP): Socket.Address
+      getpeername: function(self: UDP): Socket.Address
+      set_membership: function(self: UDP, multicast_addr: string, interface_addr: string, membership: MulticastMembership): integer, string, string
+      set_source_membership: function(self: UDP, multicast_addr: string, interface_addr: string, source_addr: string, membership: MulticastMembership): integer, string, string
+      set_multicast_loop: function(self: UDP, on: boolean): integer, string, string
+      set_multicast_ttl: function(self: UDP, ttl: integer): integer, string, string
+      set_multicast_interface: function(self: UDP, interface_addr: string): integer, string, string
+      set_broadcast: function(self: UDP, on: boolean): integer, string, string
+      set_ttl: function(self: UDP, ttl: integer): integer, string, string
+      send: function(self: UDP, data: buffer, host: string, port: integer, callback: function(err: string)): UDPSend
+      try_send: function(self: UDP, data: buffer, host: string, port: integer): integer, string, string
+      recv_start: function(self: UDP, callback: function(err: string, data: string, addr: Socket.Address, flags: RecvFlags)): integer, string, string
+      recv_stop: function(self: UDP): integer, string, string
+      connect: function(self: UDP, host: string, port: integer): integer, string, string
+    end
+
+    new_udp: function(): UDP, string, string
+    new_udp: function(flags: UDP.Flags): UDP, string, string
+
+    -- uv_fs_event_t : uv_handle_t
+    record FsEvent
+      userdata
+
+      record StartFlags
+        watch_entry: boolean
+        stat: boolean
+        recursive: boolean
+      end
+
+      record StartEvents
+        change: boolean
+        rename: boolean
+      end
+
+      type StartCallback = function(err: string, filename: string, events: StartEvents)
+
+      is_active: function(self: FsEvent): boolean, string, string
+      is_closing: function(self: FsEvent): boolean, string, string
+      close: function(self: FsEvent)
+      close: function(self: FsEvent, callback: function())
+      send_buffer_size: function(self: FsEvent, size: integer): integer, string, string
+      recv_buffer_size: function(self: FsEvent, size: integer): integer, string, string
+      fileno: function(self: FsEvent): integer, string, string
+      get_type: function(self: FsEvent): Handle.Type, integer
+
+      start: function(self: FsEvent, path: string, flags: StartFlags, callback: StartCallback): integer, string, string
+      stop: function(self: FsEvent): integer, string, string
+      getpath: function(self: FsEvent): string, string, string
+    end
+
+    new_fs_event: function(): FsEvent, string, string
+
+    -- uv_fs_poll_t : uv_handle_t
+    record FsPoll
+      userdata
+
+      type StartCallback = function(err: string, prev: FsStat, curr: FsStat)
+
+      is_active: function(self: FsPoll): boolean, string, string
+      is_closing: function(self: FsPoll): boolean, string, string
+      close: function(self: FsPoll)
+      close: function(self: FsPoll, callback: function())
+      send_buffer_size: function(self: FsPoll, size: integer): integer, string, string
+      recv_buffer_size: function(self: FsPoll, size: integer): integer, string, string
+      fileno: function(self: FsPoll): integer, string, string
+      get_type: function(self: FsPoll): Handle.Type, integer
+
+      start: function(self: FsPoll, path: string, interval: integer, callback: StartCallback): integer, string, string
+      stop: function(self: FsPoll): integer, string, string
+      getpath: function(self: FsPoll): string, string, string
+    end
+
+    new_fs_poll: function(): FsPoll, string, string
+
+    -- }}} Handles
+    -- {{{ luv-file-system-operations
+
+    record FsStat
       dev: integer
       mode: integer
       nlink: integer
@@ -268,20 +948,333 @@ global record vim
       type: string
     end
 
-    fs_stat: function(string): FsStat, string, string
-    fs_stat: function(string, function(string, FsStat))
+    record SymlinkFlags
+      dir: boolean
+      junction: boolean
+    end
 
-    fs_lstat: function(string): FsStat, string, string
-    fs_lstat: function(string, function(string, FsStat))
+    record CopyFileFlags
+      excl: boolean
+      ficlone: boolean
+      ficlone_force: boolean
+    end
 
-    fs_fstat: function(integer): FsStat, string, string
-    fs_fstat: function(integer, function(string, FsStat))
+    -- luv_dir_t
+    record FsDir
+      userdata
+    end
 
-    fs_scandir: function(string, function(string, Fs)): Fs, string, string
-    fs_scandir_next: function(Fs): string, string, string
+    record FsDirEntry
+      name: string
+      type: string
+    end
 
-    fs_mkdir: function(string, integer): boolean, string, string
-    fs_mkdir: function(string, integer, function(string, boolean)): Fs
+    record FsStatFs
+      type: integer
+      bsize: integer
+      blocks: integer
+      bfree: integer
+      bavail: integer
+      files: integer
+      ffree: integer
+    end
+
+    fs_close: function(fd: integer): boolean, string, string
+    fs_close: function(fd: integer, callback: function(err: string, success: boolean)): Fs
+
+    fs_open: function(path: string, flags: string | integer, mode: integer): integer, string, string
+    fs_open: function(path: string, flags: string | integer, mode: integer, callback: function(err: string, fd: integer)): Fs
+
+    fs_read: function(fd: integer, size: integer, offset: integer): string, string, string
+    fs_read: function(fd: integer, size: integer, offset: integer, callback: function(err: string, data: string)): Fs
+
+    fs_unlink: function(path: string): boolean, string, string
+    fs_unlink: function(path: string, callback: function(err: string, success: boolean)): Fs
+
+    fs_write: function(fd: integer, data: buffer, offset: integer): integer, string, string
+    fs_write: function(fd: integer, data: buffer, offset: integer, callback: function(err: string, bytes: integer)): Fs
+
+    fs_mkdir: function(path: string, mode: integer): boolean, string, string
+    fs_mkdir: function(path: string, mode: integer, callback: function(err: string, success: boolean)): Fs
+
+    fs_mkdtemp: function(template: string): string, string, string
+    fs_mkdtemp: function(template: string, callback: function(err: string, path: string)): Fs
+
+    fs_mkstemp: function(template: string): integer, string, string, string
+    fs_mkstemp: function(template: string, callback: function(err: string, fd: integer, path: string)): Fs
+
+    fs_rmdir: function(path: string): boolean, string, string
+    fs_rmdir: function(path: string, callback: function(err: string, success: boolean)): Fs
+
+    fs_scandir: function(path: string): Fs, string, string
+    fs_scandir: function(path: string, callback: function(err: string, success: Fs)): Fs
+    fs_scandir_next: function(fs: Fs): string, string, string, string
+
+    fs_stat: function(path: string): FsStat, string, string
+    fs_stat: function(path: string, callback: function(err: string, stat: FsStat)): Fs
+
+    fs_fstat: function(fd: integer): FsStat, string, string
+    fs_fstat: function(fd: integer, callback: function(err: string, stat: FsStat)): Fs
+
+    fs_lstat: function(path: string): FsStat, string, string
+    fs_lstat: function(path: string, callback: function(err: string, stat: FsStat)): Fs
+
+    fs_rename: function(path: string, new_path: string): boolean, string, string
+    fs_rename: function(path: string, new_path: string, callback: function(err: string, success: boolean)): Fs
+
+    fs_fsync: function(fd: integer): boolean, string, string
+    fs_fsync: function(fd: integer, callback: function(err: string, success: boolean)): Fs
+
+    fs_fdatasync: function(fd: integer): boolean, string, string
+    fs_fdatasync: function(fd: integer, callback: function(err: string, success: boolean)): Fs
+
+    fs_ftruncate: function(fd: integer, offset: integer): boolean, string, string
+    fs_ftruncate: function(fd: integer, offset: integer, callback: function(err: string, success: boolean)): Fs
+
+    fs_sendfile: function(out_fd: integer, in_fd: integer, in_offset: integer, size: integer): integer, string, string
+    fs_sendfile: function(out_fd: integer, in_fd: integer, in_offset: integer, size: integer, callback: function(err: string, bytes: integer)): Fs
+
+    fs_access: function(path: string, mode: integer): boolean, string, string
+    fs_access: function(path: string, mode: integer, callback: function(err: string, permission: boolean)): Fs
+
+    fs_chmod: function(path: string, mode: integer): boolean, string, string
+    fs_chmod: function(path: string, mode: integer, callback: function(err: string, success: boolean)): Fs
+    fs_fchmod: function(fd: integer, mode: integer): boolean, string, string
+    fs_fchmod: function(fd: integer, mode: integer, callback: function(err: string, success: boolean)): Fs
+
+    fs_utime: function(path: string, atime: number, mtime: number): boolean, string, string
+    fs_utime: function(path: string, atime: number, mtime: number, callback: function(err: string, success: boolean)): Fs
+    fs_lutime: function(path: string, atime: number, mtime: number): boolean, string, string
+    fs_lutime: function(path: string, atime: number, mtime: number, callback: function(err: string, success: boolean)): Fs
+    fs_futime: function(fd: integer, atime: number, mtime: number): boolean, string, string
+    fs_futime: function(fd: integer, atime: number, mtime: number, callback: function(err: string, success: boolean)): Fs
+
+    fs_link: function(path: string, new_path: string): boolean, string, string
+    fs_link: function(path: string, new_path: string, callback: function(err: string, success: boolean)): Fs
+
+    fs_symlink: function(path: string, new_path: string): boolean, string, string
+    fs_symlink: function(path: string, new_path: string, flags: SymlinkFlags): boolean, string, string
+    fs_symlink: function(path: string, new_path: string, callback: function(err: string, success: boolean)): Fs
+    fs_symlink: function(path: string, new_path: string, flags: SymlinkFlags, callback: function(err: string, success: boolean)): Fs
+
+    fs_readlink: function(path: string): string, string, string
+    fs_readlink: function(path: string, callback: function(err: string, path: string)): Fs
+
+    fs_realpath: function(path: string): string, string, string
+    fs_realpath: function(path: string, callback: function(err: string, path: string)): Fs
+
+    fs_chown: function(path: string, uid: integer, gid: integer): boolean, string, string
+    fs_chown: function(path: string, uid: integer, gid: integer, callback: function(err: string, success: boolean)): Fs
+    fs_lchown: function(fd: integer, uid: integer, gid: integer): boolean, string, string
+    fs_lchown: function(fd: integer, uid: integer, gid: integer, callback: function(err: string, success: boolean)): Fs
+    fs_fchown: function(fd: integer, uid: integer, gid: integer): boolean, string, string
+    fs_fchown: function(fd: integer, uid: integer, gid: integer, callback: function(err: string, success: boolean)): Fs
+
+    fs_copyfile: function(path: string, new_path: string): boolean, string, string
+    fs_copyfile: function(path: string, new_path: string, flags: CopyFileFlags): boolean, string, string
+    fs_copyfile: function(path: string, new_path: string, callback: function(err: string, success: boolean)): Fs
+    fs_copyfile: function(path: string, new_path: string, flags: CopyFileFlags, callback: function(err: string, success: boolean)): Fs
+
+    fs_opendir: function(path: string): FsDir, string, string
+    fs_opendir: function(path: string, callback: nil, entries: integer): FsDir, string, string
+    fs_opendir: function(path: string, callback: function(err: string, dir: FsDir)): Fs
+    fs_opendir: function(path: string, callback: function(err: string, dir: FsDir), entries: integer): Fs
+
+    fs_readdir: function(dir: FsDir): {FsDirEntry}, string, string
+    fs_readdir: function(dir: FsDir, callback: function(err: string, entries: {FsDirEntry})): Fs
+
+    fs_closedir: function(dir: FsDir): boolean, string, string
+    fs_closedir: function(dir: FsDir, callback: function(err: string, success: boolean)): Fs
+
+    fs_statfs: function(path: string): FsStatFs, string, string
+    fs_statfs: function(path: string, callback: function(err: string, statfs: FsStatFs)): Fs
+
+    -- }}} luv-file-system-operations
+    -- {{{ luv-thread-pool-work-scheduling
+
+    -- luv_work_ctx_t
+    record WorkCtx
+      userdata
+
+      queue_work: function(self: WorkCtx, ...: threadargs): boolean, string, string
+    end
+
+    new_work: function(work_callback: function(...: threadargs) | string, after_work_callback: function(...: threadargs)): WorkCtx
+
+    -- }}} luv-thread-pool-work-scheduling
+    -- {{{ luv-dns-utility-functions
+
+    record GetAddrInfoHints
+      family: Socket.Family | integer
+      socktype: Socket.Type | integer
+      protocol: string | integer
+      addrconfig: boolean
+      v4mapped: boolean
+      all: boolean
+      numerichost: boolean
+      passive: boolean
+      numericserv: boolean
+      canonname: boolean
+    end
+
+    record GetAddrInfoAddress
+      addr: string
+      family: Socket.Family
+      port: integer
+      socktype: Socket.Type
+      protocol: string
+      canonname: string
+    end
+
+    getaddrinfo: function(host: string, service: string): {GetAddrInfoAddress}, string, string
+    getaddrinfo: function(host: string, service: string, hints: GetAddrInfoHints): {GetAddrInfoAddress}, string, string
+    getaddrinfo: function(host: string, service: string, hints: GetAddrInfoHints, callback: function(err: string, addresses: {GetAddrInfoAddress})): GetAddrInfo
+
+    getnameinfo: function(address: Socket.Address): string, string, string, string
+    getnameinfo: function(address: Socket.Address, callback: function(err: string, host: string, service: string)): GetNameInfo
+
+    -- }}} luv-dns-utility-functions
+    -- {{{ luv-threading-and-synchronization-utilities
+
+    -- luv_thread_t
+    record Thread
+      userdata
+
+      record Options
+        stack_size: integer
+      end
+
+      equal: function(self: Thread, other_thread: Thread): boolean
+      setaffinity: function(self: Thread, affinity: {boolean}): boolean, string, string
+      setaffinity: function(self: Thread, affinity: {boolean}, get_old_affinity: boolean): boolean | {boolean}, string, string
+      getaffinity: function(self: Thread): {boolean}, string, string
+      getaffinity: function(self: Thread, mask_size: integer): {boolean}, string, string
+      join: function(self: Thread): boolean, string, string
+    end
+
+    new_thread: function(entry: function(...: threadargs) | string, ...: threadargs): Thread, string, string
+    new_thread: function(options: Thread.Options, entry: function(...: threadargs) | string, ...: threadargs): Thread, string, string
+    thread_getcpu: function(): integer, string, string
+    thread_self: function(): Thread
+    sleep: function(msec: integer)
+
+    -- }}} luv-threading-and-synchronization-utilities
+    -- {{{ luv-miscellaneous-utilities
+
+    record ResourceUsage
+      utime: Time -- user CPU time used
+      stime: Time -- system CPU time used
+      maxrss: integer -- maximum resident set size
+      ixrss: integer -- integral shared memory size
+      idrss: integer -- integral unshared data size
+      isrss: integer -- integral unshared stack size
+      minflt: integer -- page reclaims (soft page faults)
+      majflt: integer -- page faults (hard page faults)
+      nswap: integer -- swaps
+      inblock: integer -- block input operations
+      oublock: integer -- block output operations
+      msgsnd: integer -- IPC messages sent
+      msgrcv: integer -- IPC messages received
+      nsignals: integer -- signals received
+      nvcsw: integer -- voluntary context switches
+      nivcsw: integer -- involuntary context switches
+    end
+
+    record CpuInfo
+      record Times
+        user: number
+        nice: number
+        sys: number
+        idle: number
+        irq: number
+      end
+
+      model: string
+      speed: number
+      times: Times
+    end
+
+    record NetworkInterface
+      ip: string
+      family: string
+      netmask: string
+      internal: boolean
+      mac: string
+    end
+
+    record OsUname
+      sysname: string
+      release: string
+      version: string
+      machine: string
+    end
+
+    record OsPasswdEntry
+      username: string
+      uid: integer
+      gid: integer
+      shell: string
+      homedir: string
+    end
+
+    exepath: function(): string, string, string
+    cwd: function(): string, string, string
+    chdir: function(cwd: string): integer, string, string
+    get_process_title: function(): string, string, string
+    set_process_title: function(title: string): integer, string, string
+    get_total_memory: function(): integer
+    get_free_memory: function(): integer
+    get_constrained_memory: function(): integer
+    get_available_memory: function(): integer
+    resident_set_memory: function(): integer, string, string
+    getrusage: function(): ResourceUsage, string, string
+    available_parallelism: function(): integer
+    cpu_info: function(): {CpuInfo}, string, string
+    cpumask_size: function(): integer, string, string
+    getuid: function(): integer
+    getgid: function(): integer
+    setuid: function(id: integer)
+    setgid: function(id: integer)
+    hrtime: function(): number
+    clock_gettime: function(clock_id: string): Time, string, string
+    uptime: function(): number, string, string
+    guess_handle: function(fd: integer): string
+    gettimeofday: function(): integer, integer, string, string
+    interface_addresses: function(): {string: NetworkInterface}
+    if_indextoname: function(ifindex: integer): string, string, string
+    if_indextoiid: function(ifindex: integer): string, string, string
+    loadavg: function(): number, number, number
+    os_uname: function(): OsUname
+    os_gethostname: function(): string
+    os_getenv: function(name: string): string, string, string
+    os_getenv: function(name: string, size: integer): string, string, string
+    os_setenv: function(name: string, value: string): boolean, string, string
+    os_unsetenv: function(): boolean, string, string
+    os_environ: function(): {string: string}
+    os_homedir: function(): string, string, string
+    os_tmpdir: function(): string, string, string
+    os_get_passwd: function(): OsPasswdEntry
+    os_getpid: function(): integer
+    os_getppid: function(): integer
+    os_getpriority: function(pid: integer): integer, string, string
+    os_setpriority: function(pid: integer, priority: integer): boolean, string, string
+    random: function(len: integer, flags: nil): string, string, string
+    random: function(len: integer, flags: nil, callback: function(err: string, bytes: string)): integer, string, string
+    translate_sys_error: function(errcode: integer): string, string
+
+    -- }}} luv-miscellaneous-utilities
+    -- {{{ luv-metrics-operations
+
+    record MetricsInfo
+      loop_count: integer
+      events: integer
+      events_waiting: integer
+    end
+
+    metrics_idle_time: function(): number
+    metrics_info: function(): MetricsInfo
+
+    -- }}} luv-metrics-operations
   end
 
   in_fast_event: function(): boolean
