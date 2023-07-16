@@ -1543,8 +1543,8 @@ global record vim
       luanil: Luanil
     end
 
-    encode: function(string)
-    decode: function(string, DecodeOpts)
+    encode: function(obj: any): string
+    decode: function(str: string, opts: DecodeOpts): any
   end
 
   record ui
