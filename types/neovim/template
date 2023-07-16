@@ -63,11 +63,12 @@ global record vim
 
   record log
     record levels
-      DEBUG: integer
-      INFO: integer
-      HINT: integer
-      WARN: integer
-      ERROR: integer
+      TRACE: integer -- 0
+      DEBUG: integer -- 1
+      INFO: integer -- 2
+      WARN: integer -- 3
+      ERROR: integer -- 4
+      OFF: integer -- 5
     end
   end
 
