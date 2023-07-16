@@ -1564,5 +1564,47 @@ global record vim
 
     select: function(any, SelectOpts, function(any, integer))
   end
+
+  record iter
+    metamethod __call: function<T>(self: iter, src: (function(...: any): T), ...: any): Iter<T>
+    metamethod __call: function<T>(self: iter, src: {T}): Iter<T>
+    metamethod __call: function<K, V>(self: iter, src: {K: V}): Iter<{K, V}>
+
+    filter: function<T>(f: (function(T): boolean), src: (function(...: any): T), ...: any): {T}
+    filter: function<T>(f: (function(T): boolean), src: {T}): {T}
+    filter: function<K, V>(f: (function(K, V): boolean), src: {K: V}): {{K, V}}
+
+    map: function<T, U>(f: (function(T): U), src: (function(...: any): T), ...: any): {U}
+    map: function<T, U>(f: (function(T): U), src: {T}): {U}
+    map: function<K, V, U>(f: (function(K, V): U), src: {K: V}): {U}
+
+    totable: function<T>(f: (function(...: any): T), ...: any): {T}
+
+    record Iter<T>
+      metamethod __call: function(self: Iter<T>): T
+
+      all: function(self: Iter<T>, f: function(T): boolean): boolean
+      any: function(self: Iter<T>, f: function(T): boolean): boolean
+      each: function(self: Iter<T>, f: function(T))
+      enumerate: function(self: Iter<T>): Iter<{integer, T}>
+      filter: function(self: Iter<T>, f: function(T): boolean): Iter<T>
+      find: function(self: Iter<T>, f: T | function(T): boolean): T | nil
+      fold: function<U>(self: Iter<T>, init: U, f: function(U, T): U): U
+      last: function(self: Iter<T>): T | nil
+      map: function<U>(self: Iter<T>, f: function(T): U): Iter<U>
+      next: function(self: Iter<T>): T
+      nextback: function(self: Iter<T>): T
+      nth: function(self: Iter<T>, n: integer): T
+      nthback: function(self: Iter<T>, n: integer): T
+      peek: function(self: Iter<T>): T
+      peekback: function(self: Iter<T>): T
+      rev: function(self: Iter<T>): Iter<T>
+      rfind: function(self: Iter<T>, f: T | function(T): boolean): T | nil
+      skip: function(self: Iter<T>, n: integer): Iter<T>
+      skipback: function(self: Iter<T>, n: integer): Iter<T>
+      slice: function(self: Iter<T>, first: integer, last: integer): Iter<T>
+      totable: function(self: Iter<T>): {T}
+    end
+  end
 end
 
