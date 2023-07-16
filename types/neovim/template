@@ -1,24 +1,77 @@
 -- vim: ft=teal expandtab sw=2 ts=2
 
 global record vim
-  -- TODO: Either find a way to generate these or at least find a comprehensive list to put a bunch of 'TODO' stub definitions here
-  --    Sadly, there doesn't seem to be a nice way to serialize all of these
-  --    since they're lazily brought in as you call them
-  --    this might be the only way since user defined functions are also called here
-  --    ex vim.fn["MyPlugin#MyFunction"]() so
-  -- VIM_fn = record -- if record maps were a thing
-  --    {string:function(...: any): (any)}
-  --    mode: function(): Mode
-  --    ...
-  -- end
-
   -- TODO:
+  -- vim.opt
+  -- vim.opt_global
+  -- vim.opt_local
   -- vim.treesitter
 
-  fn: {string:function(...: any): (any)}
+  record Cmd
+    record Magic
+      file: boolean -- The command expands filenames. Which means characters such as "%", "#" and wildcards are expanded.
+      bar: boolean -- The "|" character is treated as a command separator and the double quote character (") is treated as the start of a comment.
+    end
+
+    record Mods
+      record Filter
+        pattern: string -- Filter pattern. Empty string if there is no filter.
+        force: boolean -- Whether filter is inverted or not.
+      end
+
+      enum Split
+        "aboveleft" -- |:aboveleft|.
+        "belowright" -- |:belowright|.
+        "topleft" -- |:topleft|.
+        "botright" -- |:botright|.
+      end
+
+      filter: Filter -- |:filter|.
+      silent: boolean -- |:silent|.
+      emsg_silent: boolean -- |:silent!|.
+      unsilent: boolean -- |:unsilent|.
+      sandbox: boolean -- |:sandbox|.
+      noautocmd: boolean -- |:noautocmd|.
+      browse: boolean -- |:browse|.
+      confirm: boolean -- |:confirm|.
+      hide: boolean -- |:hide|.
+      horizontal: boolean -- |:horizontal|.
+      keepalt: boolean -- |:keepalt|.
+      keepjumps: boolean -- |:keepjumps|.
+      keepmarks: boolean -- |:keepmarks|.
+      keeppatterns: boolean -- |:keeppatterns|.
+      lockmarks: boolean -- |:lockmarks|.
+      noswapfile: boolean -- |:noswapfile|.
+      tab: integer -- |:tab|. -1 when omitted.
+      verbose: integer -- |:verbose|. -1 when omitted.
+      vertical: boolean -- |:vertical|.
+      split: Split -- Split modifier string, is an empty string when there's no split modifier. If there is a split modifier it can be one of:
+    end
+
+    cmd: string -- Command name.
+    range: {integer, integer} -- Command range (|<line1>| |<line2>|). Omitted if command doesn't accept a range. Otherwise, has no elements if no range was specified, one element if only a single range item was specified, or two elements if both range items were specified.
+    count: integer -- Command |<count>|. Omitted if command cannot take a count.
+    reg: string -- Command |<register>|. Omitted if command cannot take a register.
+    bang: boolean -- Whether command contains a |<bang>| (!) modifier.
+    args: {string} -- Command arguments.
+    addr: string -- Value of |:command-addr|. Uses short name or "line" for -addr=lines.
+    nargs: string -- Value of |:command-nargs|.
+    nextcmd: string -- Next command if there are multiple commands separated by a |:bar|. Empty if there isn't a next command.
+    magic: Magic -- Which characters have special meaning in the command arguments.
+    mods: Mods -- |:command-modifiers|.
+  end
+
   cmd: function(cmd: string)
-  call: function(func: string, ...: any)
-  call: function(string, ...: any): any
+  cmd: function(cmd: Cmd)
+
+  -- TODO: Either find a way to generate these or at least find a comprehensive list to put a bunch
+  -- of 'TODO' stub definitions here.
+  -- Sadly, there doesn't seem to be a nice way to serialize all of these since they're lazily
+  -- brought in as you call them.
+  -- This might be the only way since user defined functions are also called here, for example:
+  -- `vim.fn["MyPlugin#MyFunction"]()`.
+  fn: {string: (function(...: any): any...)}
+  call: function(func: string, ...: any): any...
 
   enum Mode
     "n" -- Normal
@@ -1513,11 +1566,6 @@ global record vim
 
     client: function(): Client
   end
-
-  -- TODO:
-  -- vim.opt
-  -- vim.opt_global
-  -- vim.opt_local
 
   g: {string:any}
   t: {string:any}
