@@ -1567,23 +1567,27 @@ global record vim
     client: function(): Client
   end
 
-  g: {string:any}
-  t: {string:any}
-  v: {string:any}
-  b: {string:any}
-  w: {string:any}
+  g: {string: any}
+  t: {string: any}
+  v: {string: any}
+  b: {string: any}
+  w: {string: any}
   env: {string: string}
 
   --[[$ALL_OPTS$]]
+
   o: AllOptions
 
   --[[$GLOBAL_OPTS$]]
+
   go: GlobalOptions
 
   --[[$BUFFER_OPTS$]]
+
   bo: BufferOptions
 
   --[[$WINDOW_OPTS$]]
+
   wo: WindowOptions
 
   --[[$API$]]

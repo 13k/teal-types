@@ -1,4 +1,19 @@
--- vim: ft=teal sw=2 ts=2
+-- vim: ft=teal expandtab sw=2 ts=2
+
+local INDENT <const>: string = "  "
+
+local function indent(s: string, n: integer): string
+  n = n or 1
+
+  local indent_str = INDENT:rep(n)
+
+  s = indent_str .. s
+  s = s:gsub("\r?\n", function(nl: string): string
+    return ("%s%s"):format(nl, indent_str)
+  end)
+
+  return s
+end
 
 local record Func
   method: boolean
@@ -15,9 +30,9 @@ local record Type
 end
 
 local record Info
-  error_types: {string:{string:integer}}
+  error_types: {string: {string: integer}}
   functions: {Func}
-  types: {string:Type}
+  types: {string: Type}
   ui_options: {string}
 
   record Version
@@ -45,18 +60,18 @@ local record VimStub
       scope: string
     end
 
-    nvim_get_all_options_info: function(): {string:OptInfo}
+    nvim_get_all_options_info: function(): {string: OptInfo}
   end
 end
 
 global vim <const>: VimStub
 
-local substitutions <const>: {string:string} = {}
+local substitutions <const>: {string: string} = {}
 
 do
   local api_info <const> = vim.fn.api_info()
 
-  local typeMap <const>: {string:string} = setmetatable({
+  local typeMap <const>: {string: string} = setmetatable({
     ["String"] = "string",
     ["Number"] = "number",
     ["Float"] = "number",
@@ -72,7 +87,7 @@ do
     end
   })
 
-  local function getTypeName(name: string): string
+  local function getTypeName(name: string): string, string
     local tname: string
 
     if name:match("ArrayOf") then
@@ -98,23 +113,22 @@ do
       tname = typeMap[name]
     end
 
-    return tname .. "--[[" .. name .. "]]"
+    return tname, name
   end
 
   local ins = table.insert
   local buf: {string} = {}
   local list: {string} = {}
 
-  ins(buf, ([===[
-record api
-      --[[
-         API version Information
-            neovim version: %s.%s.%s
+  local preamble = ([===[
+--[[
+  API version Information
 
-            compatible: %s
-            level: %s
-            prerelease: %s
-      --]]
+    version: %s.%s.%s
+    compatible: %s
+    level: %s
+    prerelease: %s
+--]]
 ]===]):format(
   api_info.version.major,
   api_info.version.minor,
@@ -123,7 +137,10 @@ record api
   api_info.version.api_compatible,
   api_info.version.api_level,
   api_info.version.api_prerelease
-))
+)
+
+  ins(buf, "record api")
+  ins(buf, indent(preamble, 2))
 
   local typeArray: {{string}} = {}
 
@@ -135,42 +152,50 @@ record api
     return a[1] < b[1]
   end)
 
-  ins(buf, [===[
-      --[[
-         Vim Type -> Teal Type]===])
+  ins(buf, indent("--[[", 2))
+  ins(buf, indent("Type mapping (vim -> teal)\n", 3))
 
   for _, v in ipairs(typeArray) do
-    ins(buf, "         " .. v[1] .. " -> " .. v[2])
+    ins(buf, indent(("%s -> %s"):format(v[1], v[2]), 3))
   end
 
-  ins(buf, "         none of the above -> any")
-  ins(buf, "      --]]\n")
+  ins(buf, indent("none of the above -> any", 3))
+  ins(buf, indent("--]]\n", 2))
 
   for _, f in ipairs(api_info.functions) do
     if not f.deprecated_since then
       local line: {string} = {}
+      local comment: {string} = {}
 
-      ins(line, "      ")
-      ins(line, f.name)
-      ins(line, ": function(")
+      ins(line, indent(("%s: function("):format(f.name), 2))
+      ins(comment, " -- (")
 
       for idx, param in ipairs(f.parameters) do
-        ins(line, getTypeName(param[1]))
+        local teal_typename, vim_typename = getTypeName(param[1])
+
+        ins(line, teal_typename)
+        ins(comment, vim_typename)
 
         if idx < #f.parameters then
           ins(line, ", ")
+          ins(comment, ", ")
         end
       end
 
       ins(line, ")")
+      ins(comment, "): ")
 
       if f.return_type and f.return_type ~= "void" then
+        local teal_typename, vim_typename = getTypeName(f.return_type)
+
         ins(line, ": ")
-        ins(line , getTypeName(f.return_type))
+        ins(line, teal_typename)
+        ins(comment, vim_typename)
       elseif f.return_type == "void" then
-        ins(line, "--[[void]]")
+        ins(comment, "void")
       end
 
+      ins(line, table.concat(comment))
       ins(list, table.concat(line))
     end
   end
@@ -178,15 +203,13 @@ record api
   table.sort(list)
 
   ins(buf, table.concat(list, "\n"))
-  ins(buf, "   end\n")
+  ins(buf, indent("end", 1))
 
   substitutions.API = table.concat(buf, "\n")
 end
 
 do
   local opts <const> = vim.api.nvim_get_all_options_info()
-  opts[""] = nil
-
   local go <const>: {string} = {}
   local o <const>: {string} = {}
   local wo <const>: {string} = {}
@@ -195,42 +218,47 @@ do
   for _, opt in pairs(opts) do
     local tables: {{string}} = {}
 
-      table.insert(tables, o)
+    table.insert(tables, o)
 
     if opt.scope == "win" then
-         table.insert(tables, wo)
+      table.insert(tables, wo)
     elseif opt.scope == "buf" then
-         table.insert(tables, bo)
+      table.insert(tables, bo)
     elseif opt.scope == "global" then
-         table.insert(tables, go)
+      table.insert(tables, go)
     end
 
-      for _, tab in ipairs(tables) do
+    for _, tab in ipairs(tables) do
       if opt.shortname ~= "" then
-       	table.insert(tab, string.format("      %s: %s", opt.shortname, opt.type))
-       end
-      table.insert(tab, string.format("      %s: %s", opt.name, opt.type))
+       	table.insert(tab, indent(("%s: %s"):format(opt.shortname, opt.type), 2))
       end
+
+      table.insert(tab, indent(("%s: %s"):format(opt.name, opt.type), 2))
+    end
   end
 
   table.sort(o)
   table.insert(o, 1, "record AllOptions")
-  table.insert(o, "   end")
+  table.insert(o, indent("end", 1))
+
   substitutions.ALL_OPTS = table.concat(o, "\n")
 
   table.sort(go)
   table.insert(go, 1, "record GlobalOptions")
-  table.insert(go, "   end")
+  table.insert(go, indent("end", 1))
+
   substitutions.GLOBAL_OPTS = table.concat(go, "\n")
 
   table.sort(wo)
   table.insert(wo, 1, "record WindowOptions")
-  table.insert(wo, "   end")
+  table.insert(wo, indent("end", 1))
+
   substitutions.WINDOW_OPTS = table.concat(wo, "\n")
 
   table.sort(bo)
   table.insert(bo, 1, "record BufferOptions")
-  table.insert(bo, "   end")
+  table.insert(bo, indent("end", 1))
+
   substitutions.BUFFER_OPTS = table.concat(bo, "\n")
 end
 
