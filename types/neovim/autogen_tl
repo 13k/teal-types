@@ -58,6 +58,8 @@ local record VimStub
       shortname: string
       type: string
       scope: string
+      commalist: boolean
+      flaglist: boolean
     end
 
     nvim_get_all_options_info: function(): {string: OptInfo}
@@ -209,57 +211,86 @@ do
 end
 
 do
-  local opts <const> = vim.api.nvim_get_all_options_info()
-  local go <const>: {string} = {}
-  local o <const>: {string} = {}
-  local wo <const>: {string} = {}
-  local bo <const>: {string} = {}
+  local function format_o(name: string, opt: VimStub.api.OptInfo): string
+    return ("%s: %s"):format(name, opt.type)
+  end
 
-  for _, opt in pairs(opts) do
-    local tables: {{string}} = {}
+  local function format_opt(name: string, opt: VimStub.api.OptInfo): string
+    local lua_type: string
+    local item_type: string
 
-    table.insert(tables, o)
-
-    if opt.scope == "win" then
-      table.insert(tables, wo)
-    elseif opt.scope == "buf" then
-      table.insert(tables, bo)
-    elseif opt.scope == "global" then
-      table.insert(tables, go)
+    if opt.commalist then
+      lua_type = ("{%s}"):format(opt.type)
+      item_type = opt.type
+    elseif opt.flaglist then
+      lua_type = "{string: boolean}"
+      item_type = "string"
+    else
+      lua_type = opt.type
+      item_type = opt.type
     end
 
-    for _, tab in ipairs(tables) do
+    return ("%s: Option<%s, %s>"):format(name, lua_type, item_type)
+  end
+
+  local opts <const> = vim.api.nvim_get_all_options_info()
+
+  local record OptionsScope
+    record_name: string
+    template_var: string
+    lines: {string}
+  end
+
+  local scopes <const>: {string: OptionsScope} = {
+    o = { template_var = "OPTIONS_ALL", lines = {} },
+    go = { template_var = "OPTIONS_GLOBAL", lines = {} },
+    wo = { template_var = "OPTIONS_WINDOW", lines = {} },
+    bo = { template_var = "OPTIONS_BUFFER", lines = {} },
+    opt = { template_var = "OPTIONS_OBJ_ALL", lines = {} },
+    opt_g = { template_var = "OPTIONS_OBJ_GLOBAL", lines = {} },
+    opt_l = { template_var = "OPTIONS_OBJ_LOCAL", lines = {} },
+  }
+
+  for _, opt in pairs(opts) do
+    local scopes_o: {OptionsScope} = {}
+    local scopes_opt: {OptionsScope} = {}
+
+    table.insert(scopes_o, scopes.o)
+    table.insert(scopes_opt, scopes.opt)
+
+    if opt.scope == "win" then
+      table.insert(scopes_o, scopes.wo)
+      table.insert(scopes_opt, scopes.opt_l)
+    elseif opt.scope == "buf" then
+      table.insert(scopes_o, scopes.bo)
+      table.insert(scopes_opt, scopes.opt_l)
+    elseif opt.scope == "global" then
+      table.insert(scopes_o, scopes.go)
+      table.insert(scopes_opt, scopes.opt_g)
+    end
+
+    for _, scope in ipairs(scopes_o) do
       if opt.shortname ~= "" then
-       	table.insert(tab, indent(("%s: %s"):format(opt.shortname, opt.type), 2))
+       	table.insert(scope.lines, indent(format_o(opt.shortname, opt), 2))
       end
 
-      table.insert(tab, indent(("%s: %s"):format(opt.name, opt.type), 2))
+      table.insert(scope.lines, indent(format_o(opt.name, opt), 2))
+    end
+
+    for _, scope in ipairs(scopes_opt) do
+      if opt.shortname ~= "" then
+       	table.insert(scope.lines, indent(format_opt(opt.shortname, opt), 2))
+      end
+
+      table.insert(scope.lines, indent(format_opt(opt.name, opt), 2))
     end
   end
 
-  table.sort(o)
-  table.insert(o, 1, "record AllOptions")
-  table.insert(o, indent("end", 1))
+  for _, scope in pairs(scopes) do
+    table.sort(scope.lines)
 
-  substitutions.ALL_OPTS = table.concat(o, "\n")
-
-  table.sort(go)
-  table.insert(go, 1, "record GlobalOptions")
-  table.insert(go, indent("end", 1))
-
-  substitutions.GLOBAL_OPTS = table.concat(go, "\n")
-
-  table.sort(wo)
-  table.insert(wo, 1, "record WindowOptions")
-  table.insert(wo, indent("end", 1))
-
-  substitutions.WINDOW_OPTS = table.concat(wo, "\n")
-
-  table.sort(bo)
-  table.insert(bo, 1, "record BufferOptions")
-  table.insert(bo, indent("end", 1))
-
-  substitutions.BUFFER_OPTS = table.concat(bo, "\n")
+    substitutions[scope.template_var] = table.concat(scope.lines, "\n")
+  end
 end
 
 local text: string

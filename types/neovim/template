@@ -2,9 +2,6 @@
 
 global record vim
   -- TODO:
-  -- vim.opt
-  -- vim.opt_global
-  -- vim.opt_local
   -- vim.treesitter
 
   record Cmd
@@ -1577,21 +1574,73 @@ global record vim
   w: {string: any}
   env: {string: string}
 
-  --[[$ALL_OPTS$]]
+  -- Option object that handles options that are comma-separated lists (has `commalist` meta
+  -- property) and flag sets (has `flaglist` meta property).
+  --
+  -- The type parameter `T` is the type returned by `opt:get()`:
+  --   - commalist option: `{string}`
+  --   - flaglist option: `{string: boolean}`
+  --   - simple option: option's type (`string`, `integer`, etc)
+  --
+  -- The type parameter `I` is `T`'s item type, accepted by `opt:append()`, `opt:prepend()` and
+  -- `opt:remove()` for commalist or flaglist options. For simple options, it's the same as `T`.
+  -- It's present because it's not possible to automatically infer from `T`.
+  --
+  -- NOTE: This does not cover the valid case
+  --   `opt.(name) = (value)`
+  -- but it can be worked around by using
+  --   `opt.(name) = (value) as vim.Option<T, I>` (T and I as concrete types)
+  -- Also, defining metamethods `__index` and `__newindex` (not supported yet by Teal) on
+  -- *OptionsObjects records would lose the type for each specific option.
+  record Option<T, I>
+    get: function(self: Option<T, I>): T
+    append: function(self: Option<T, I>, item: I)
+    append: function(self: Option<T, I>, item: {I})
+    prepend: function(self: Option<T, I>, item: I)
+    prepend: function(self: Option<T, I>, item: {I})
+    remove: function(self: Option<T, I>, item: I)
+    remove: function(self: Option<T, I>, item: {I})
+
+    metamethod __add: function(self: Option<T, I>, item: I): Option<T, I>
+    metamethod __pow: function(self: Option<T, I>, item: I): Option<T, I>
+    metamethod __sub: function(self: Option<T, I>, item: I): Option<T, I>
+  end
+
+  record AllOptions -- {{{
+--[[$OPTIONS_ALL$]]
+  end -- }}}
+
+  record GlobalOptions -- {{{
+--[[$OPTIONS_GLOBAL$]]
+  end -- }}}
+
+  record WindowOptions -- {{{
+--[[$OPTIONS_WINDOW$]]
+  end -- }}}
+
+  record BufferOptions -- {{{
+--[[$OPTIONS_BUFFER$]]
+  end -- }}}
+
+  record AllOptionsObjects -- {{{
+--[[$OPTIONS_OBJ_ALL$]]
+  end -- }}}
+
+  record GlobalOptionsObjects -- {{{
+--[[$OPTIONS_OBJ_GLOBAL$]]
+  end -- }}}
+
+  record LocalOptionsObjects -- {{{
+--[[$OPTIONS_OBJ_LOCAL$]]
+  end -- }}}
 
   o: AllOptions
-
-  --[[$GLOBAL_OPTS$]]
-
   go: GlobalOptions
-
-  --[[$BUFFER_OPTS$]]
-
-  bo: BufferOptions
-
-  --[[$WINDOW_OPTS$]]
-
   wo: WindowOptions
+  bo: BufferOptions
+  opt: AllOptionsObjects
+  opt_global: GlobalOptionsObjects
+  opt_local: LocalOptionsObjects
 
   --[[$API$]]
 
