@@ -61,8 +61,11 @@ global record vim
     mods: Mods -- |:command-modifiers|.
   end
 
-  cmd: function(cmd: string)
-  cmd: function(cmd: Cmd)
+  record cmd
+    metamethod __call: function(self: cmd, cmd: string)
+    metamethod __call: function(self: cmd, cmd: Cmd)
+    metamethod __index: function(cmd, string): (function(...: any): any)
+  end
 
   -- TODO: Either find a way to generate these or at least find a comprehensive list to put a bunch
   -- of 'TODO' stub definitions here.
