@@ -113,6 +113,7 @@ global record vim
   end
 
   inspect: function(any, InspectOptions): string
+  print: function(...: any)
 
   record log
     record levels
