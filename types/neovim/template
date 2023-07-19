@@ -1561,11 +1561,817 @@ global record vim
     buf_request: function(bufnr: integer, method: string, params: table, handler: function): {integer:integer}, function
     buf_request_sync: function(bufnr: integer, method: string, params: table, timeout_ms: integer): {integer:integer}, string
 
-    record Client
-      request: function(Client)
+    enum Trace
+      "off"
+      "messages"
+      "verbose"
     end
 
-    client: function(): Client
+    record ClientConfig
+      cmd: {string} | function(dispatchers: table): table
+      cmd_cwd: string
+      cmd_env: {string: string}
+      detached: boolean
+      workspace_folders: table
+      capabilities: ClientCapabilities
+      handlers: {string: function()}
+      settings: table
+      commands: table
+      init_options: table
+      name: string
+      get_language_id: function(bufnr: integer, filetype: string): string
+      offset_encoding: string
+      on_error: function(code: integer)
+      before_init: function
+      on_init: function
+      on_exit: function(code: integer, signal: integer, client_id: integer)
+      on_attach: function(client: Client, bufnr: integer)
+      trace: Trace
+      flags: table
+      root_dir: string
+    end
+
+    record Client
+      record SupportsMethodOptions
+        bufnr: integer
+      end
+
+      record RequestSyncResponse
+        err: ResponseError
+        result: any
+      end
+
+      id: integer
+      name: string
+      config: ClientConfig
+      server_capabilities: ClientCapabilities
+
+      request: function(method: string, params: any, handler: Handler, bufnr: integer): boolean, integer
+      request_sync: function(method: string, params: any, timeout_ms: integer, bufnr: integer): RequestSyncResponse, string
+      notify: function(method: string, params: any): boolean
+      cancel_request: function(id: integer): boolean
+      stop: function(force: boolean)
+      is_stopped: function(): boolean
+      on_attach: function(client: Client, bufnr: integer)
+      supports_method: function(method: string, options: SupportsMethodOptions): boolean
+    end
+
+    -- types {{{
+    -- TODO: auto-generate
+    -- <nvim_runtime>/lua/vim/lsp/types.lua
+
+    type Handler = function(err: ResponseError, result: any, context: HandlerContext, config: table): any
+
+    record HandlerContext
+      method: string
+      client_id: integer
+      bufnr: integer
+      params: any
+    end
+
+    record ResponseError
+      code: integer
+      message: string
+      data: any
+    end
+
+    record ShowMessageRequestParams
+      type: MessageType
+      message: string
+      actions: {MessageActionItem}
+    end
+
+    record MessageActionItem
+      title: string
+    end
+
+    record FileEvent
+      uri: string
+      type: FileChangeType
+    end
+
+    record Position
+      line: integer
+      character: integer
+    end
+
+    record Range
+      start: Position
+      ["end"]: Position
+    end
+
+    record Diagnostic
+      range: Range
+      message: string
+      severity: DiagnosticSeverity
+      code: integer | string
+      source: string
+      tags: {DiagnosticTag}
+      relatedInformation: {DiagnosticRelatedInformation}
+    end
+
+    record DocumentFilter
+      language: string
+      scheme: string
+      pattern: string
+    end
+
+    type DocumentSelector = {DocumentFilter}
+
+    --- @alias RegisterOptions any | StaticRegistrationOptions | TextDocumentRegistrationOptions
+    record RegisterOptions
+      id: string
+      documentSelector: DocumentSelector
+    end
+
+    record Registration
+      id: string
+      method: string
+      registerOptions: RegisterOptions
+    end
+
+    record RegistrationParams
+      registrations: {Registration}
+    end
+
+    record StaticRegistrationOptions
+      id: string
+    end
+
+    record TextDocumentRegistrationOptions
+      documentSelector: DocumentSelector
+    end
+
+    record Unregistration
+      id: string
+      method: string
+    end
+
+    record UnregistrationParams
+      unregisterations: {Unregistration}
+    end
+
+    record Location
+      uri: string
+      range: Range
+    end
+
+    record MarkupContent
+      kind: string
+      value: string
+    end
+
+    record InlayHintLabelPart
+      value: string
+      tooltip: string | MarkupContent
+      location: Location
+    end
+
+    record TextEdit
+      range: Range
+      newText: string
+    end
+
+    record InlayHint
+      position: Position
+      label: string | {InlayHintLabelPart}
+      kind: integer
+      textEdits: {TextEdit}
+      paddingLeft: boolean
+      paddingRight: boolean
+    end
+
+    -- }}} types
+    -- protocol {{{
+    -- TODO: auto-generate
+    -- https://raw.githubusercontent.com/microsoft/lsprotocol/main/generator/lsp.json
+
+    type uinteger = integer
+
+    type MessageType = integer
+      -- Error (1)
+      -- Warning (2)
+      -- Info (3)
+      -- Log (4)
+
+    type FileChangeType = integer
+      -- Created (1)
+      -- Changed (2)
+      -- Deleted (3)
+
+    type DiagnosticSeverity = integer
+      -- Error (1)
+      -- Warning (2)
+      -- Information (3)
+      -- Hint (4)
+
+    enum FoldingRangeKind
+      "comment" -- Comment
+      "imports" -- Imports
+      "region" -- Region
+    end
+
+    type SymbolKind = integer
+      -- File (1)
+      -- Module (2)
+      -- Namespace (3)
+      -- Package (4)
+      -- Class (5)
+      -- Method (6)
+      -- Property (7)
+      -- Field (8)
+      -- Constructor (9)
+      -- Enum (10)
+      -- Interface (11)
+      -- Function (12)
+      -- Variable (13)
+      -- Constant (14)
+      -- String (15)
+      -- Number (16)
+      -- Boolean (17)
+      -- Array (18)
+      -- Object (19)
+      -- Key (20)
+      -- Null (21)
+      -- EnumMember (22)
+      -- Struct (23)
+      -- Event (24)
+      -- Operator (25)
+      -- TypeParameter (26)
+
+    type SymbolTag = integer
+      -- Deprecated (1)
+
+    type CompletionItemKind = integer
+      -- Text (1)
+      -- Method (2)
+      -- Function (3)
+      -- Constructor (4)
+      -- Field (5)
+      -- Variable (6)
+      -- Class (7)
+      -- Interface (8)
+      -- Module (9)
+      -- Property (10)
+      -- Unit (11)
+      -- Value (12)
+      -- Enum (13)
+      -- Keyword (14)
+      -- Snippet (15)
+      -- Color (16)
+      -- File (17)
+      -- Reference (18)
+      -- Folder (19)
+      -- EnumMember (20)
+      -- Constant (21)
+      -- Struct (22)
+      -- Event (23)
+      -- Operator (24)
+      -- TypeParameter (25)
+
+    type CompletionItemTag = integer
+      -- Deprecated (1)
+
+    type InsertTextMode = integer
+      -- asIs (1)
+      -- adjustIndentation (2)
+
+    enum CodeActionKind
+      "" -- Empty
+      "quickfix" -- QuickFix
+      "refactor" -- Refactor
+      "refactor.extract" -- RefactorExtract
+      "refactor.inline" -- RefactorInline
+      "refactor.rewrite" -- RefactorRewrite
+      "source" -- Source
+      "source.organizeImports" -- SourceOrganizeImports
+      "source.fixAll" -- SourceFixAll
+    end
+
+    enum MarkupKind
+      "plaintext" -- PlainText
+      "markdown" -- Markdown
+    end
+
+    enum PositionEncodingKind
+      "utf-8" -- UTF8
+      "utf-16" -- UTF16
+      "utf-32" -- UTF32
+    end
+
+    type DiagnosticTag = integer
+      -- Unnecessary (1)
+      -- Deprecated (2)
+
+    enum ResourceOperationKind
+      "create" -- Create
+      "rename" -- Rename
+      "delete" -- Delete
+    end
+
+    enum FailureHandlingKind
+      "abort" -- Abort
+      "transactional" -- Transactional
+      "textOnlyTransactional" -- TextOnlyTransactional
+      "undo" -- Undo
+    end
+
+    type PrepareSupportDefaultBehavior = integer
+      -- Identifier (1)
+
+    enum TokenFormat
+      "relative" -- Relative
+    end
+
+    record ClientCapabilities
+      workspace: WorkspaceClientCapabilities
+      textDocument: TextDocumentClientCapabilities
+      notebookDocument: NotebookDocumentClientCapabilities
+      window: WindowClientCapabilities
+      general: GeneralClientCapabilities
+      experimental: any
+    end
+
+    record WorkspaceClientCapabilities
+      applyEdit: boolean
+      workspaceEdit: WorkspaceEditClientCapabilities
+      didChangeConfiguration: DidChangeConfigurationClientCapabilities
+      didChangeWatchedFiles: DidChangeWatchedFilesClientCapabilities
+      symbol: WorkspaceSymbolClientCapabilities
+      executeCommand: ExecuteCommandClientCapabilities
+      workspaceFolders: boolean
+      configuration: boolean
+      semanticTokens: SemanticTokensWorkspaceClientCapabilities
+      codeLens: CodeLensWorkspaceClientCapabilities
+      fileOperations: FileOperationClientCapabilities
+      inlineValue: InlineValueWorkspaceClientCapabilities
+      inlayHint: InlayHintWorkspaceClientCapabilities
+      diagnostics: DiagnosticWorkspaceClientCapabilities
+    end
+
+    record WorkspaceEditClientCapabilities
+      documentChanges: boolean
+      resourceOperations: {ResourceOperationKind}
+      failureHandling: FailureHandlingKind
+      normalizesLineEndings: boolean
+
+      record changeAnnotationSupport
+        groupsOnLabel: boolean
+      end
+    end
+
+    record DidChangeConfigurationClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record DidChangeWatchedFilesClientCapabilities
+      dynamicRegistration: boolean
+      relativePatternSupport: boolean
+    end
+
+    record WorkspaceSymbolClientCapabilities
+      dynamicRegistration: boolean
+
+      record symbolKind
+        valueSet: {SymbolKind}
+      end
+
+      record tagSupport
+        valueSet: {SymbolTag}
+      end
+
+      record resolveSupport
+        properties: {string}
+      end
+    end
+
+    record ExecuteCommandClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record SemanticTokensWorkspaceClientCapabilities
+      refreshSupport: boolean
+    end
+
+    record CodeLensWorkspaceClientCapabilities
+      refreshSupport: boolean
+    end
+
+    record FileOperationClientCapabilities
+      dynamicRegistration: boolean
+      didCreate: boolean
+      willCreate: boolean
+      didRename: boolean
+      willRename: boolean
+      didDelete: boolean
+      willDelete: boolean
+    end
+
+    record InlineValueWorkspaceClientCapabilities
+      refreshSupport: boolean
+    end
+
+    record InlayHintWorkspaceClientCapabilities
+      refreshSupport: boolean
+    end
+
+    record DiagnosticWorkspaceClientCapabilities
+      refreshSupport: boolean
+    end
+
+    record TextDocumentClientCapabilities
+      synchronization: TextDocumentSyncClientCapabilities
+      completion: CompletionClientCapabilities
+      hover: HoverClientCapabilities
+      signatureHelp: SignatureHelpClientCapabilities
+      declaration: DeclarationClientCapabilities
+      definition: DefinitionClientCapabilities
+      typeDefinition: TypeDefinitionClientCapabilities
+      implementation: ImplementationClientCapabilities
+      references: ReferenceClientCapabilities
+      documentHighlight: DocumentHighlightClientCapabilities
+      documentSymbol: DocumentSymbolClientCapabilities
+      codeAction: CodeActionClientCapabilities
+      codeLens: CodeLensClientCapabilities
+      documentLink: DocumentLinkClientCapabilities
+      colorProvider: DocumentColorClientCapabilities
+      formatting: DocumentFormattingClientCapabilities
+      rangeFormatting: DocumentRangeFormattingClientCapabilities
+      onTypeFormatting: DocumentOnTypeFormattingClientCapabilities
+      rename: RenameClientCapabilities
+      foldingRange: FoldingRangeClientCapabilities
+      selectionRange: SelectionRangeClientCapabilities
+      publishDiagnostics: PublishDiagnosticsClientCapabilities
+      callHierarchy: CallHierarchyClientCapabilities
+      semanticTokens: SemanticTokensClientCapabilities
+      linkedEditingRange: LinkedEditingRangeClientCapabilities
+      moniker: MonikerClientCapabilities
+      typeHierarchy: TypeHierarchyClientCapabilities
+      inlineValue: InlineValueClientCapabilities
+      inlayHint: InlayHintClientCapabilities
+      diagnostic: DiagnosticClientCapabilities
+      inlineCompletion: InlineCompletionClientCapabilities
+    end
+
+    record TextDocumentSyncClientCapabilities
+      dynamicRegistration: boolean
+      willSave: boolean
+      willSaveWaitUntil: boolean
+      didSave: boolean
+    end
+
+    record CompletionClientCapabilities
+      dynamicRegistration: boolean
+      record completionItem
+        snippetSupport: boolean
+        commitCharactersSupport: boolean
+        documentationFormat: {MarkupKind}
+        deprecatedSupport: boolean
+        preselectSupport: boolean
+        record tagSupport
+          valueSet: {CompletionItemTag}
+        end
+
+        insertReplaceSupport: boolean
+        record resolveSupport
+          properties: {string}
+        end
+
+        record insertTextModeSupport
+          valueSet: {InsertTextMode}
+        end
+
+        labelDetailsSupport: boolean
+      end
+
+      record completionItemKind
+        valueSet: {CompletionItemKind}
+      end
+
+      insertTextMode: InsertTextMode
+      contextSupport: boolean
+      record completionList
+        itemDefaults: {string}
+      end
+    end
+
+    record CompletionContext
+      triggerKind: CompletionTriggerKind
+      triggerCharacter: string
+    end
+
+    type CompletionTriggerKind = integer
+      -- Invoked (1)
+      -- TriggerCharacter (2)
+      -- TriggerForIncompleteCompletions (3)
+
+    record CompletionItem
+      label: string
+      labelDetails: CompletionItemLabelDetails
+      kind: CompletionItemKind
+      tags: {CompletionItemTag}
+      detail: string
+      documentation: string|MarkupContent
+      deprecated: boolean
+      preselect: boolean
+      sortText: string
+      filterText: string
+      insertText: string
+      insertTextFormat: InsertTextFormat
+      insertTextMode: InsertTextMode
+      textEdit: TextEdit_Or_InsertReplaceEdit
+      textEditText: string
+      additionalTextEdits: {TextEdit}
+      commitCharacters: {string}
+      command: Command
+      data: any
+    end
+
+    record TextEdit_Or_InsertReplaceEdit
+      range: Range
+      newText: string
+      --newText: string
+      insert: Range
+      replace: Range
+    end
+
+    type InsertTextFormat = integer
+      -- PlainText (1)
+      -- Snippet (2)
+
+    record CompletionItemLabelDetails
+      detail: string
+      description: string
+    end
+
+    record InsertReplaceEdit
+      newText: string
+      insert: Range
+      replace: Range
+    end
+
+    record Command
+      title: string
+      command: string
+      arguments: {any}
+    end
+
+    record HoverClientCapabilities
+      dynamicRegistration: boolean
+      contentFormat: {MarkupKind}
+    end
+
+    record SignatureHelpClientCapabilities
+      dynamicRegistration: boolean
+      record signatureInformation
+        documentationFormat: {MarkupKind}
+        record parameterInformation
+          labelOffsetSupport: boolean
+        end
+
+        activeParameterSupport: boolean
+      end
+
+      contextSupport: boolean
+    end
+
+    record DeclarationClientCapabilities
+      dynamicRegistration: boolean
+      linkSupport: boolean
+    end
+
+    record DefinitionClientCapabilities
+      dynamicRegistration: boolean
+      linkSupport: boolean
+    end
+
+    record TypeDefinitionClientCapabilities
+      dynamicRegistration: boolean
+      linkSupport: boolean
+    end
+
+    record ImplementationClientCapabilities
+      dynamicRegistration: boolean
+      linkSupport: boolean
+    end
+
+    record ReferenceClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record DocumentHighlightClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record DocumentSymbolClientCapabilities
+      dynamicRegistration: boolean
+      record symbolKind
+        valueSet: {SymbolKind}
+      end
+
+      hierarchicalDocumentSymbolSupport: boolean
+      record tagSupport
+        valueSet: {SymbolTag}
+      end
+
+      labelSupport: boolean
+    end
+
+    record CodeActionClientCapabilities
+      dynamicRegistration: boolean
+      record codeActionLiteralSupport
+        record codeActionKind
+          valueSet: {CodeActionKind}
+        end
+
+      end
+
+      isPreferredSupport: boolean
+      disabledSupport: boolean
+      dataSupport: boolean
+      record resolveSupport
+        properties: {string}
+      end
+
+      honorsChangeAnnotations: boolean
+    end
+
+    record CodeLensClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record DocumentLinkClientCapabilities
+      dynamicRegistration: boolean
+      tooltipSupport: boolean
+    end
+
+    record DocumentColorClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record DocumentFormattingClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record DocumentRangeFormattingClientCapabilities
+      dynamicRegistration: boolean
+      rangesSupport: boolean
+    end
+
+    record DocumentOnTypeFormattingClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record RenameClientCapabilities
+      dynamicRegistration: boolean
+      prepareSupport: boolean
+      prepareSupportDefaultBehavior: PrepareSupportDefaultBehavior
+      honorsChangeAnnotations: boolean
+    end
+
+    record FoldingRangeClientCapabilities
+      dynamicRegistration: boolean
+      rangeLimit: uinteger
+      lineFoldingOnly: boolean
+      record foldingRangeKind
+        valueSet: {FoldingRangeKind}
+      end
+
+      record foldingRange
+        collapsedText: boolean
+      end
+
+    end
+
+    record SelectionRangeClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record PublishDiagnosticsClientCapabilities
+      relatedInformation: boolean
+      record tagSupport
+        valueSet: {DiagnosticTag}
+      end
+
+      versionSupport: boolean
+      codeDescriptionSupport: boolean
+      dataSupport: boolean
+    end
+
+    record CallHierarchyClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record SemanticTokensClientCapabilities
+      dynamicRegistration: boolean
+      record requests
+        range: boolean|anonym10
+        full: boolean|anonym11
+      end
+
+      tokenTypes: {string}
+      tokenModifiers: {string}
+      formats: {TokenFormat}
+      overlappingTokenSupport: boolean
+      multilineTokenSupport: boolean
+      serverCancelSupport: boolean
+      augmentsSyntaxTokens: boolean
+    end
+
+    record LinkedEditingRangeClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record MonikerClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record TypeHierarchyClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record InlineValueClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record InlayHintClientCapabilities
+      dynamicRegistration: boolean
+      record resolveSupport
+        properties: {string}
+      end
+
+    end
+
+    record DiagnosticClientCapabilities
+      dynamicRegistration: boolean
+      relatedDocumentSupport: boolean
+    end
+
+    record DiagnosticRelatedInformation
+      location: Location
+      message: string
+    end
+
+    record InlineCompletionClientCapabilities
+      dynamicRegistration: boolean
+    end
+
+    record NotebookDocumentClientCapabilities
+      synchronization: NotebookDocumentSyncClientCapabilities
+    end
+
+    record NotebookDocumentSyncClientCapabilities
+      dynamicRegistration: boolean
+      executionSummarySupport: boolean
+    end
+
+    record WindowClientCapabilities
+      workDoneProgress: boolean
+      showMessage: ShowMessageRequestClientCapabilities
+      showDocument: ShowDocumentClientCapabilities
+    end
+
+    record ShowMessageRequestClientCapabilities
+      record messageActionItem
+        additionalPropertiesSupport: boolean
+      end
+
+    end
+
+    record ShowDocumentClientCapabilities
+      support: boolean
+    end
+
+    record GeneralClientCapabilities
+      record staleRequestSupport
+        cancel: boolean
+        retryOnContentModified: {string}
+      end
+
+      regularExpressions: RegularExpressionsClientCapabilities
+      markdown: MarkdownClientCapabilities
+      positionEncodings: {PositionEncodingKind}
+    end
+
+    record RegularExpressionsClientCapabilities
+      engine: string
+      version: string
+    end
+
+    record MarkdownClientCapabilities
+      parser: string
+      version: string
+      allowedTags: {string}
+    end
+
+    record anonym10
+    end
+
+    record anonym11
+      delta: boolean
+    end
+
+    -- }}} protocol
   end
 
   g: {string: any}
