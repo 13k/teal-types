@@ -1,19 +1,43 @@
 #!/usr/bin/env bash
-# compile autogen_tl, make neovim run it
 
 set -euo pipefail
 
+SCRIPT_FILE="$(realpath "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_FILE")"
+GEN_DIR="${SCRIPT_DIR}/gen"
+
+tmp_files=()
+
+tmpfile() {
+  local path
+
+  path="$(mktemp)"
+  tmp_files+=("$path")
+
+  echo "$path"
+}
+
 cleanup() {
-  rm -f "empty.d.tl" "autogen.lua"
+  rm -f "empty.d.tl" "${tmp_files[@]}"
 }
 
 trap "cleanup" EXIT
 
 NVIM_BIN="${NVIM_BIN:-"nvim"}"
 
+autogen_lua="$(tmpfile)"
+
 touch "empty.d.tl"
 
-tl check --global-env-def "empty" -q "autogen_tl"
-tl gen --global-env-def "empty" --skip-compat53 -q -o "autogen.lua" "autogen_tl"
+tl gen \
+  --global-env-def "empty" \
+  --skip-compat53 \
+  --check \
+  --output "$autogen_lua" \
+  --quiet \
+  "${GEN_DIR}/autogen.tl"
 
-"$NVIM_BIN" --noplugin -u NORC --headless -n "+luafile autogen.lua" "+q"
+"$NVIM_BIN" \
+  -l "$autogen_lua" \
+  --in "${GEN_DIR}/template.d.tl" \
+  --out "${SCRIPT_DIR}/vim.d.tl"

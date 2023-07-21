@@ -1,0 +1,352 @@
+--[[
+Generates teal annotations for neovim
+
+USAGE:
+
+nvim -l autogen.lua [options]
+
+OPTIONS:
+
+  --in <TEMPLATE.d.tl>  Read template from <TEMPLATE.d.tl> (default: ./template.d.tl)
+  --out <OUTPUT.d.tl>   Write output to <OUTPUT.d.tl> (default: ./vim.d.tl)
+--]]
+
+local record M
+  record Args
+    template_file: string
+    output_file: string
+  end
+
+  args: Args
+end
+
+
+function M.parse_args(): M.Args
+  local args: M.Args = {
+    template_file = "template.d.tl",
+    output_file = "vim.d.tl",
+  }
+
+  for i = 1, #_G.arg do
+    if _G.arg[i] == "--in" then
+      args.template_file = _G.arg[i + 1]
+    elseif _G.arg[i] == "--out" then
+      args.output_file = _G.arg[i + 1]
+    end
+  end
+
+  return args
+end
+
+local INDENT <const>: string = "  "
+
+local function indent(text: string, indent_level: integer): string
+  indent_level = indent_level or 1
+
+  local indent_str = INDENT:rep(indent_level)
+
+  return indent_str .. text:gsub("\n", "\n" .. indent_str)
+end
+
+local record Func
+  method: boolean
+  name: string
+  parameters: {{string}}
+  return_type: string
+  since: integer
+  deprecated_since: integer
+end
+
+local record Type
+  id: integer
+  prefix: string
+end
+
+local record Info
+  error_types: {string: {string: integer}}
+  functions: {Func}
+  types: {string: Type}
+  ui_options: {string}
+
+  record Version
+    api_compatible: integer
+    api_level: integer
+    api_prerelease: boolean
+    major: integer
+    minor: integer
+    patch: integer
+  end
+
+  version: Version
+end
+
+local record VimStub
+  record fn
+    api_info: function(): Info
+  end
+
+  record api
+    record OptInfo
+      name: string
+      shortname: string
+      type: string
+      scope: string
+      commalist: boolean
+      flaglist: boolean
+    end
+
+    nvim_get_all_options_info: function(): {string: OptInfo}
+  end
+end
+
+global vim <const>: VimStub
+
+function M.gen()
+  local substitutions <const>: {string: string} = {}
+
+  do
+    local api_info <const> = vim.fn.api_info()
+
+    local typeMap <const>: {string: string} = setmetatable({
+      ["String"] = "string",
+      ["Number"] = "number",
+      ["Float"] = "number",
+      ["Integer"] = "integer",
+      ["Boolean"] = "boolean",
+      ["Buffer"] = "integer",
+      ["Window"] = "integer",
+      ["Tabpage"] = "integer",
+      ["Dictionary"] = "{string:any}",
+    }, {
+      __index = function(): string
+        return "any"
+      end
+    })
+
+    local function get_type_name(name: string): string, string
+      local tname: string
+
+      if name:match("ArrayOf") then
+        local arrayType = name:gsub("ArrayOf%((.*)%)", "%1")
+
+        if arrayType:find(",") then
+          local elementName, _size = arrayType:match("(%S+)%s*,%s*(%d+)")
+          local size = tonumber(_size)
+
+          elementName = typeMap[elementName]
+
+          local tupleStr = {}
+
+          for _ = 1, size do
+            table.insert(tupleStr, elementName)
+          end
+
+          tname = "{" .. table.concat(tupleStr, ",") .. "}"
+        else
+          tname = "{" .. typeMap[arrayType] .. "}"
+        end
+      else
+        tname = typeMap[name]
+      end
+
+      return tname, name
+    end
+
+    local ins = table.insert
+    local buf: {string} = {}
+    local list: {string} = {}
+
+    local preamble = ([===[
+--[[
+  API version Information
+
+    version: %s.%s.%s
+    compatible: %s
+    level: %s
+    prerelease: %s
+--]]
+]===]):format(
+    api_info.version.major,
+    api_info.version.minor,
+    api_info.version.patch,
+
+    api_info.version.api_compatible,
+    api_info.version.api_level,
+    api_info.version.api_prerelease
+  )
+
+    ins(buf, "record api")
+    ins(buf, indent(preamble, 2))
+
+    local typeArray: {{string}} = {}
+
+    for k, v in pairs(typeMap) do
+      table.insert(typeArray, {k, v})
+    end
+
+    table.sort(typeArray, function(a: {string}, b: {string}): boolean
+      return a[1] < b[1]
+    end)
+
+    ins(buf, indent("--[[", 2))
+    ins(buf, indent("Type mapping (vim -> teal)\n", 3))
+
+    for _, v in ipairs(typeArray) do
+      ins(buf, indent(("%s -> %s"):format(v[1], v[2]), 3))
+    end
+
+    ins(buf, indent("none of the above -> any", 3))
+    ins(buf, indent("--]]\n", 2))
+
+    for _, f in ipairs(api_info.functions) do
+      if not f.deprecated_since then
+        local line: {string} = {}
+        local comment: {string} = {}
+
+        ins(line, indent(("%s: function("):format(f.name), 2))
+        ins(comment, " -- (")
+
+        for idx, param in ipairs(f.parameters) do
+          local teal_typename, vim_typename = get_type_name(param[1])
+
+          ins(line, teal_typename)
+          ins(comment, vim_typename)
+
+          if idx < #f.parameters then
+            ins(line, ", ")
+            ins(comment, ", ")
+          end
+        end
+
+        ins(line, ")")
+        ins(comment, "): ")
+
+        if f.return_type and f.return_type ~= "void" then
+          local teal_typename, vim_typename = get_type_name(f.return_type)
+
+          ins(line, ": ")
+          ins(line, teal_typename)
+          ins(comment, vim_typename)
+        elseif f.return_type == "void" then
+          ins(comment, "void")
+        end
+
+        ins(line, table.concat(comment))
+        ins(list, table.concat(line))
+      end
+    end
+
+    table.sort(list)
+
+    ins(buf, table.concat(list, "\n"))
+    ins(buf, indent("end", 1))
+
+    substitutions.API = table.concat(buf, "\n")
+  end
+
+  do
+    local function format_o(name: string, opt: VimStub.api.OptInfo): string
+      return ("%s: %s"):format(name, opt.type)
+    end
+
+    local function format_opt(name: string, opt: VimStub.api.OptInfo): string
+      local lua_type: string
+      local item_type: string
+
+      if opt.commalist then
+        lua_type = ("{%s}"):format(opt.type)
+        item_type = opt.type
+      elseif opt.flaglist then
+        lua_type = "{string: boolean}"
+        item_type = "string"
+      else
+        lua_type = opt.type
+        item_type = opt.type
+      end
+
+      return ("%s: Option<%s, %s>"):format(name, lua_type, item_type)
+    end
+
+    local opts <const> = vim.api.nvim_get_all_options_info()
+
+    local record OptionsScope
+      record_name: string
+      template_var: string
+      lines: {string}
+    end
+
+    local scopes <const>: {string: OptionsScope} = {
+      o = { template_var = "OPTIONS_ALL", lines = {} },
+      go = { template_var = "OPTIONS_GLOBAL", lines = {} },
+      wo = { template_var = "OPTIONS_WINDOW", lines = {} },
+      bo = { template_var = "OPTIONS_BUFFER", lines = {} },
+      opt = { template_var = "OPTIONS_OBJ_ALL", lines = {} },
+      opt_g = { template_var = "OPTIONS_OBJ_GLOBAL", lines = {} },
+      opt_l = { template_var = "OPTIONS_OBJ_LOCAL", lines = {} },
+    }
+
+    for _, opt in pairs(opts) do
+      local scopes_o: {OptionsScope} = {}
+      local scopes_opt: {OptionsScope} = {}
+
+      table.insert(scopes_o, scopes.o)
+      table.insert(scopes_opt, scopes.opt)
+
+      if opt.scope == "win" then
+        table.insert(scopes_o, scopes.wo)
+        table.insert(scopes_opt, scopes.opt_l)
+      elseif opt.scope == "buf" then
+        table.insert(scopes_o, scopes.bo)
+        table.insert(scopes_opt, scopes.opt_l)
+      elseif opt.scope == "global" then
+        table.insert(scopes_o, scopes.go)
+        table.insert(scopes_opt, scopes.opt_g)
+      end
+
+      for _, scope in ipairs(scopes_o) do
+        if opt.shortname ~= "" then
+          table.insert(scope.lines, indent(format_o(opt.shortname, opt), 2))
+        end
+
+        table.insert(scope.lines, indent(format_o(opt.name, opt), 2))
+      end
+
+      for _, scope in ipairs(scopes_opt) do
+        if opt.shortname ~= "" then
+          table.insert(scope.lines, indent(format_opt(opt.shortname, opt), 2))
+        end
+
+        table.insert(scope.lines, indent(format_opt(opt.name, opt), 2))
+      end
+    end
+
+    for _, scope in pairs(scopes) do
+      table.sort(scope.lines)
+
+      substitutions[scope.template_var] = table.concat(scope.lines, "\n")
+    end
+  end
+
+  local text: string
+
+  do
+    local fh <const> = assert(io.open(M.args.template_file, "r"))
+
+    text = fh:read("*a"):gsub("%-%-%[%[%$(.-)%$%]%]", substitutions)
+    fh:close()
+  end
+
+  do
+    local fh <const> = assert(io.open(M.args.output_file, "w"))
+
+    fh:write(text)
+    fh:close()
+  end
+end
+
+function M.run()
+  M.args = M.parse_args()
+  M.gen()
+end
+
+M.run()
