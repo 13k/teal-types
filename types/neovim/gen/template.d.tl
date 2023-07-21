@@ -135,56 +135,105 @@ global record vim
   notify_once: function(msg: string, level: integer, opt: table)
   paste: function({string}, integer): boolean
   schedule_wrap: function(function): function
+  defer_fn: function(function, integer)
+  is_callable: function(any): boolean
+  pesc: function(string): string
+  wait: function(integer)
+
+  record SystemOpts
+    -- Set the current working directory for the sub-process.
+    cwd: string
+    -- Set environment variables for the new process. Inherits the current environment with `NVIM`
+    -- set to |v:servername|.
+    env: {string: string}
+    -- `env` defines the job environment exactly, instead of merging current environment.
+    clear_env: boolean
+    -- If `true`, then a pipe to stdin is opened and can be written to via the `write()` method to
+    -- SystemObj. If string or string[] then will be written to stdin and closed. Defaults to
+    -- `false`.
+    stdin: string | {string} | boolean
+    -- Handle output from stdout. When passed as a function must have the signature
+    -- `fun(err: string, data: string)`. Defaults to `true`
+    stdout: boolean | function
+    -- Handle output from stdout. When passed as a function must have the signature
+    -- `fun(err: string, data: string)`. Defaults to `true`.
+    stderr: boolean | function
+    -- Handle stdout and stderr as text. Replaces `\r\n` with `\n`.
+    text: boolean
+    --
+    timeout: integer
+    -- If true, spawn the child process in a detached state - this will make it a process group
+    -- leader, and will effectively enable the child to keep running after the parent exits. Note
+    -- that the child process will still keep the parent's event loop alive unless the parent
+    -- process calls |uv.unref()| on the child's process handle.
+    detach: boolean
+  end
+
+  record SystemCompleted
+    code: integer
+    signal: integer
+    stdout: string
+    stderr: string
+  end
+
+  record SystemObj
+    pid: integer
+
+    wait: function(self: SystemObj, timeout: integer): SystemCompleted
+    kill: function(self: SystemObj, signal: integer)
+    write: function(self: SystemObj, data: string)
+    is_closing: function(self: SystemObj): boolean
+  end
+
+  system: function(cmd: {string}, opts: SystemOpts): SystemObj
+  system: function(cmd: {string}, opts: SystemOpts, on_exit: function(SystemCompleted))
+
   deep_equal: function(any, any): boolean
   deepcopy: function<T>(T): T
-  defer_fn: function(function, integer)
+
   startswith: function(string, string): boolean
   endswith: function(string, string): boolean
   gsplit: function(string, string, SplitOptions): function(): string
-  is_callable: function(any): boolean
+  split: function(string, string, SplitOptions): {string}
+  trim: function(string): string
+
+  -- TODO
+  -- diff: function(a: string, b: string, options: DiffOptions): string | {integer}
+  diff: function(a: string, b: string): string
+
   list_contains: function<T>(t: {T}, value: T): boolean
   list_extend: function<T>(dst: {T}, src: {T}, start: integer, finish: integer): {T}
   list_extend: function<T, U>(dst: {T}, src: {U}, start: integer, finish: integer): {T | U}
   list_slice: function<T>(list: {T}, start: integer, finish: integer): {T}
-  pesc: function(string): string
-  split: function(string, string, SplitOptions): {string}
-  wait: function(integer)
 
-  tbl_add_reverse_lookup: function(table)
-  tbl_contains: function<T>({T}, T): boolean
-  tbl_count: function(table): integer
-
-  enum ExtendBehavior
+  enum TableExtendBehavior
     "error"
     "keep"
     "force"
   end
 
-  tbl_extend: function(ExtendBehavior, table, table, ...: table): table
-  tbl_extend: function<T>(ExtendBehavior, {T:any}, {T:any}, ...: {T:any}): {T:any}
-  tbl_extend: function<T>(ExtendBehavior, {any:T}, {any:T}, ...: {any:T}): {any:T}
-  tbl_extend: function<T,V>(ExtendBehavior, {T:V}, {T:V}, ...: {T:V}): {T:V}
-  tbl_deep_extend: function(ExtendBehavior, table, table, ...: table): table
-  tbl_deep_extend: function<T>(ExtendBehavior, {T:any}, {T:any}, ...: {T:any}): {T:any}
-  tbl_deep_extend: function<T>(ExtendBehavior, {any:T}, {any:T}, ...: {any:T}): {any:T}
-  tbl_deep_extend: function<T,V>(ExtendBehavior, {T:V}, {T:V}, ...: {T:V}): {T:V}
-
+  tbl_add_reverse_lookup: function(table)
+  tbl_contains: function<T>({T}, T): boolean
+  tbl_count: function(table): integer
+  tbl_extend: function(TableExtendBehavior, table, table, ...: table): table
+  tbl_extend: function<T>(TableExtendBehavior, {T:any}, {T:any}, ...: {T:any}): {T:any}
+  tbl_extend: function<T>(TableExtendBehavior, {any:T}, {any:T}, ...: {any:T}): {any:T}
+  tbl_extend: function<T,V>(TableExtendBehavior, {T:V}, {T:V}, ...: {T:V}): {T:V}
+  tbl_deep_extend: function(TableExtendBehavior, table, table, ...: table): table
+  tbl_deep_extend: function<T>(TableExtendBehavior, {T:any}, {T:any}, ...: {T:any}): {T:any}
+  tbl_deep_extend: function<T>(TableExtendBehavior, {any:T}, {any:T}, ...: {any:T}): {any:T}
+  tbl_deep_extend: function<T,V>(TableExtendBehavior, {T:V}, {T:V}, ...: {T:V}): {T:V}
   tbl_filter: function<T>(function(T): (boolean), {T})
   tbl_filter: function(function(any): (boolean), {any})
-
   tbl_flatten: function<T>({T|{T}}): {T}
   tbl_flatten: function({any|{any}}): {any}
-
   tbl_get: function(table, ...: any): any
   tbl_isempty: function(table): boolean
   tbl_islist: function(table): boolean
   tbl_keys: function<T>({T:any}): {T}
   tbl_values: function<T>({any:T}): {T}
-
   tbl_map: function<A, B, C>(function(B): (C), {A:B}): {A:C}
   tbl_map: function(function(any): (any), table): table
-
-  trim: function(string): string
 
   enum TypeName
     "table" "t"
@@ -208,10 +257,6 @@ global record vim
 
   regex: function(string): Regex
 
-  diff: function(a: string, b: string): string
-  -- TODO
-  -- diff: function(a: string, b: string, options: DiffOptions): string | {integer}
-
   record VersionInfo
     api_compatible: integer
     api_level: integer
@@ -227,8 +272,6 @@ global record vim
   uri_from_fname: function(path: string): string
   uri_to_bufnr: function(uri: string): integer
   uri_to_fname: function(uri: string): string
-
-  pretty_print: function(obj: any): string
 
   region: function(bufnr: integer, pos1: {integer}, pos2: {integer}, regtype: string, inclusive: boolean): {integer:{integer}}
 
